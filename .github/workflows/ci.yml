@@ -1,0 +1,26 @@
+name: ci
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install ruff pytest bandit pip-audit
+      - run: if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+      - name: lint
+        run: ruff check .
+      - name: tests
+        # exit code 5 = no tests collected yet
+        run: pytest -q || [ $? -eq 5 ]
+      - name: security scan (our code)
+        # data/ holds intentionally insecure example snippets
+        run: bandit -r . -x ./data,./tests,./.venv -q
+      - name: dependency audit
+        run: if [ -f requirements.txt ]; then pip-audit -r requirements.txt; fi

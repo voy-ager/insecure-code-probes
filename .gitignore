@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.ruff_cache/
+# large artifacts: activations and model weights stay local
+data/activations/
+*.pt
+*.safetensors
+*.npy
