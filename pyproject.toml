@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "icp"
+version = "0.1.0"
+description = "Linear probes for insecure code in code-model activations"
+requires-python = ">=3.12"
+
+[project.optional-dependencies]
+# bandit comes pinned from requirements.txt
+dev = ["pip-audit==2.10.1", "pytest==9.1.1", "ruff==0.17.2"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+extend-exclude = ["data"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+# slow = real-model tests, local only; `pytest -m slow` overrides this default
+addopts = "-m 'not slow'"
+markers = ["slow: needs a real model or tokenizer download (local only)"]
