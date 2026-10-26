@@ -8,3 +8,4 @@ data/activations/
 *.pt
 *.safetensors
 *.npy
+*.egg-info/

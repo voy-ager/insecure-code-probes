@@ -7,10 +7,16 @@ Status: pilot in progress. Models: Qwen2.5-Coder-0.5B (dev), Qwen2.5-Coder-1.5B 
 ## Setup
 
 ```
-python -m venv .venv && . .venv/bin/activate   # Windows: .venv\Scripts\activate
+python -m venv .venv
+.venv\Scripts\activate        # Windows
+. .venv/bin/activate           # Linux / macOS
 pip install -r requirements.txt -r requirements-model.txt
-pytest            # fast tests; `pytest -m slow` runs the real-model tests
+pip install -e ".[dev]"        # the icp package plus ruff, pytest, pip-audit
+pytest                         # fast tests
 ```
+
+Linux, CPU only: install torch from the CPU index first, `pip install torch==2.14.1 --index-url https://download.pytorch.org/whl/cpu`, to skip the CUDA build.
+`pytest -m slow` runs the real-model tests; for now it runs only a placeholder.
 
 ## Contributing
 
