@@ -1,0 +1,301 @@
+{
+  "cwe": "CWE-798",
+  "templates": [
+    {
+      "template_id": "cwe798-t01",
+      "expected_bandit": [
+        "B105"
+      ],
+      "hard": {
+        "insecure": null,
+        "secure": null
+      },
+      "names": {
+        "fn": [
+          "db_settings",
+          "database_config",
+          "connection_info"
+        ],
+        "host": [
+          "DB_HOST",
+          "DATABASE_HOST",
+          "PG_HOST"
+        ]
+      },
+      "doc": "Return the settings used to open the reporting database.",
+      "insecure": [
+        "import os",
+        "",
+        "${host} = os.environ.get(\"REPORT_DB_HOST\", \"localhost\")",
+        "DB_PASSWORD = \"dummy\"",
+        "",
+        "${helpers}",
+        "",
+        "def ${fn}():",
+        "    ${doc}",
+        "    return {\"host\": ${host}, \"user\": \"reporter\", \"password\": DB_PASSWORD}"
+      ],
+      "secure": [
+        "import os",
+        "",
+        "${host} = os.environ.get(\"REPORT_DB_HOST\", \"localhost\")",
+        "DB_PASSWORD = os.environ[\"DB_PASSWORD\"]",
+        "",
+        "${helpers}",
+        "",
+        "def ${fn}():",
+        "    ${doc}",
+        "    return {\"host\": ${host}, \"user\": \"reporter\", \"password\": DB_PASSWORD}"
+      ]
+    },
+    {
+      "template_id": "cwe798-t02",
+      "expected_bandit": [
+        "B106"
+      ],
+      "hard": {
+        "insecure": null,
+        "secure": null
+      },
+      "names": {
+        "fn": [
+          "upload_backup",
+          "push_backup",
+          "send_archive"
+        ],
+        "arg": [
+          "archive",
+          "backup_file",
+          "bundle"
+        ]
+      },
+      "doc": "Upload a nightly backup archive to the file server.",
+      "insecure": [
+        "import os",
+        "from ftplib import FTP",
+        "",
+        "${helpers}",
+        "",
+        "def ${fn}(host, ${arg}):",
+        "    ${doc}",
+        "    with FTP(host, user=\"backup\", passwd=\"fake-pw\") as ftp, open(${arg}, \"rb\") as fh:",
+        "        ftp.storbinary(\"STOR \" + os.path.basename(${arg}), fh)"
+      ],
+      "secure": [
+        "import os",
+        "from ftplib import FTP",
+        "",
+        "${helpers}",
+        "",
+        "def ${fn}(host, ${arg}):",
+        "    ${doc}",
+        "    with FTP(host, user=\"backup\", passwd=os.environ[\"FTP_PASSWD\"]) as ftp, open(${arg}, \"rb\") as fh:",
+        "        ftp.storbinary(\"STOR \" + os.path.basename(${arg}), fh)"
+      ]
+    },
+    {
+      "template_id": "cwe798-t03",
+      "expected_bandit": [
+        "B107"
+      ],
+      "hard": {
+        "insecure": null,
+        "secure": null
+      },
+      "names": {
+        "fn": [
+          "open_db",
+          "connect_store",
+          "get_connection"
+        ],
+        "dsn": [
+          "host",
+          "server",
+          "address"
+        ]
+      },
+      "doc": "Build connection keyword arguments for the metrics store.",
+      "insecure": [
+        "import os",
+        "",
+        "${helpers}",
+        "",
+        "def ${fn}(${dsn}, port=5432, password=\"dummy\"):",
+        "    ${doc}",
+        "    password = password or os.environ.get(\"PGPASSWORD\")",
+        "    return {\"host\": ${dsn}, \"port\": port, \"password\": password}"
+      ],
+      "secure": [
+        "import os",
+        "",
+        "${helpers}",
+        "",
+        "def ${fn}(${dsn}, port=5432, password=None):",
+        "    ${doc}",
+        "    password = password or os.environ.get(\"PGPASSWORD\")",
+        "    return {\"host\": ${dsn}, \"port\": port, \"password\": password}"
+      ]
+    },
+    {
+      "template_id": "cwe798-t04",
+      "expected_bandit": [
+        "B105"
+      ],
+      "hard": {
+        "insecure": "hidden_token",
+        "secure": "mention_in_comment"
+      },
+      "names": {
+        "fn": [
+          "build_settings",
+          "make_settings",
+          "service_settings"
+        ],
+        "arg": [
+          "settings",
+          "conf",
+          "options"
+        ]
+      },
+      "doc": "Fill in the mail relay settings for the notifier.",
+      "insecure": [
+        "import os",
+        "",
+        "${helpers}",
+        "",
+        "def ${fn}(${arg}: dict) -> dict:",
+        "    ${doc}",
+        "    ${arg}[\"relay\"] = os.environ.get(\"MAIL_RELAY\", \"localhost\")",
+        "    ${arg}[\"user\"] = \"notifier\"",
+        "    ${arg}[\"pwd\"] = \"not-real\"",
+        "    return ${arg}"
+      ],
+      "secure": [
+        "import os",
+        "",
+        "${helpers}",
+        "",
+        "def ${fn}(${arg}: dict) -> dict:",
+        "    ${doc}",
+        "    ${arg}[\"relay\"] = os.environ.get(\"MAIL_RELAY\", \"localhost\")",
+        "    ${arg}[\"user\"] = \"notifier\"",
+        "    ${arg}[\"pwd\"] = os.environ[\"MAIL_PWD\"]  # never a literal password here",
+        "    return ${arg}"
+      ]
+    },
+    {
+      "template_id": "cwe798-t05",
+      "expected_bandit": [
+        "B105"
+      ],
+      "hard": {
+        "insecure": null,
+        "secure": null
+      },
+      "names": {
+        "cls": [
+          "ApiClient",
+          "ServiceClient",
+          "RemoteApi"
+        ],
+        "fn": [
+          "fetch",
+          "get_json",
+          "call"
+        ]
+      },
+      "doc": "Small client for the internal inventory service.",
+      "insecure": [
+        "import os",
+        "import urllib.request",
+        "",
+        "",
+        "class ${cls}:",
+        "    ${doc}",
+        "    base_url = os.environ.get(\"INVENTORY_URL\", \"http://localhost:8080\")",
+        "    token = \"example\"",
+        "",
+        "    def ${fn}(self, path: str) -> bytes:",
+        "        req = urllib.request.Request(self.base_url + path, headers={\"X-Client\": self.token})",
+        "        with urllib.request.urlopen(req, timeout=10) as resp:",
+        "            return resp.read()",
+        "",
+        "${helpers}"
+      ],
+      "secure": [
+        "import os",
+        "import urllib.request",
+        "",
+        "",
+        "class ${cls}:",
+        "    ${doc}",
+        "    base_url = os.environ.get(\"INVENTORY_URL\", \"http://localhost:8080\")",
+        "    token = os.environ[\"INVENTORY_TOKEN\"]",
+        "",
+        "    def ${fn}(self, path: str) -> bytes:",
+        "        req = urllib.request.Request(self.base_url + path, headers={\"X-Client\": self.token})",
+        "        with urllib.request.urlopen(req, timeout=10) as resp:",
+        "            return resp.read()",
+        "",
+        "${helpers}"
+      ]
+    },
+    {
+      "template_id": "cwe798-t06",
+      "expected_bandit": [
+        "B106"
+      ],
+      "hard": {
+        "insecure": "hidden_token",
+        "secure": "mention_in_comment"
+      },
+      "names": {
+        "fn": [
+          "send_report",
+          "mail_summary",
+          "notify_team"
+        ],
+        "arg": [
+          "recipient",
+          "to_addr",
+          "target"
+        ]
+      },
+      "doc": "Mail the daily summary through the relay.",
+      "insecure": [
+        "import os",
+        "import smtplib",
+        "",
+        "",
+        "def _login(server, user, passphrase):",
+        "    server.login(user, passphrase)",
+        "",
+        "${helpers}",
+        "",
+        "def ${fn}(${arg}, text):",
+        "    ${doc}",
+        "    with smtplib.SMTP(os.environ.get(\"SMTP_HOST\", \"localhost\"), 587) as server:",
+        "        server.starttls()",
+        "        _login(server, \"reports\", passphrase=\"xxxx\")",
+        "        server.sendmail(\"reports\", [${arg}], text)"
+      ],
+      "secure": [
+        "import os",
+        "import smtplib",
+        "",
+        "",
+        "def _login(server, user, passphrase):",
+        "    server.login(user, passphrase)",
+        "",
+        "${helpers}",
+        "",
+        "def ${fn}(${arg}, text):",
+        "    ${doc}",
+        "    with smtplib.SMTP(os.environ.get(\"SMTP_HOST\", \"localhost\"), 587) as server:",
+        "        server.starttls()",
+        "        _login(server, \"reports\", passphrase=os.environ[\"SMTP_PASS\"])  # passphrase=\"...\" would be hardcoded",
+        "        server.sendmail(\"reports\", [${arg}], text)"
+      ]
+    }
+  ]
+}

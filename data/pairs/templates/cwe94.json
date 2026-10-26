@@ -1,0 +1,299 @@
+{
+  "cwe": "CWE-94",
+  "templates": [
+    {
+      "template_id": "cwe94-t01",
+      "expected_bandit": [
+        "B307"
+      ],
+      "hard": {
+        "insecure": null,
+        "secure": null
+      },
+      "names": {
+        "fn": [
+          "calc",
+          "evaluate_input",
+          "compute_value"
+        ],
+        "arg": [
+          "expr",
+          "text",
+          "source"
+        ]
+      },
+      "doc": "Turn the user's input into a Python value.",
+      "insecure": [
+        "import ast",
+        "",
+        "${helpers}",
+        "",
+        "def ${fn}(${arg}: str):",
+        "    ${doc}",
+        "    ${arg} = ${arg}.strip()",
+        "    if not ${arg}:",
+        "        return None",
+        "    return eval(${arg})"
+      ],
+      "secure": [
+        "import ast",
+        "",
+        "${helpers}",
+        "",
+        "def ${fn}(${arg}: str):",
+        "    ${doc}",
+        "    ${arg} = ${arg}.strip()",
+        "    if not ${arg}:",
+        "        return None",
+        "    return ast.literal_eval(${arg})"
+      ]
+    },
+    {
+      "template_id": "cwe94-t02",
+      "expected_bandit": [
+        "B307"
+      ],
+      "hard": {
+        "insecure": null,
+        "secure": null
+      },
+      "names": {
+        "fn": [
+          "read_settings",
+          "parse_config",
+          "load_options"
+        ],
+        "fh": [
+          "fh",
+          "stream",
+          "handle"
+        ]
+      },
+      "doc": "Parse key=value lines where values are Python literals.",
+      "insecure": [
+        "import ast",
+        "",
+        "${helpers}",
+        "",
+        "def ${fn}(${fh}):",
+        "    ${doc}",
+        "    settings = {}",
+        "    for line in ${fh}:",
+        "        key, sep, raw = line.partition(\"=\")",
+        "        if sep and not key.startswith(\"#\"):",
+        "            settings[key.strip()] = eval(raw.strip())",
+        "    return settings"
+      ],
+      "secure": [
+        "import ast",
+        "",
+        "${helpers}",
+        "",
+        "def ${fn}(${fh}):",
+        "    ${doc}",
+        "    settings = {}",
+        "    for line in ${fh}:",
+        "        key, sep, raw = line.partition(\"=\")",
+        "        if sep and not key.startswith(\"#\"):",
+        "            settings[key.strip()] = ast.literal_eval(raw.strip())",
+        "    return settings"
+      ]
+    },
+    {
+      "template_id": "cwe94-t03",
+      "expected_bandit": [
+        "B102"
+      ],
+      "hard": {
+        "insecure": null,
+        "secure": null
+      },
+      "names": {
+        "fn": [
+          "dispatch",
+          "run_action",
+          "handle_command"
+        ],
+        "arg": [
+          "action",
+          "verb",
+          "command"
+        ]
+      },
+      "doc": "Run the named job action and return its message.",
+      "insecure": [
+        "def _start(job):",
+        "    return f\"started {job}\"",
+        "",
+        "",
+        "def _stop(job):",
+        "    return f\"stopped {job}\"",
+        "",
+        "",
+        "ACTIONS = {\"start\": _start, \"stop\": _stop}",
+        "",
+        "${helpers}",
+        "",
+        "def ${fn}(${arg}, job):",
+        "    ${doc}",
+        "    scope = {\"job\": job, \"_start\": _start, \"_stop\": _stop}",
+        "    exec(f\"result = _{${arg}}(job)\", scope)",
+        "    return scope[\"result\"]"
+      ],
+      "secure": [
+        "def _start(job):",
+        "    return f\"started {job}\"",
+        "",
+        "",
+        "def _stop(job):",
+        "    return f\"stopped {job}\"",
+        "",
+        "",
+        "ACTIONS = {\"start\": _start, \"stop\": _stop}",
+        "",
+        "${helpers}",
+        "",
+        "def ${fn}(${arg}, job):",
+        "    ${doc}",
+        "    scope = {\"job\": job, \"_start\": _start, \"_stop\": _stop}",
+        "    scope[\"result\"] = ACTIONS[${arg}](job)",
+        "    return scope[\"result\"]"
+      ]
+    },
+    {
+      "template_id": "cwe94-t04",
+      "expected_bandit": [
+        "B307"
+      ],
+      "hard": {
+        "insecure": "hidden_token",
+        "secure": "mention_in_comment"
+      },
+      "names": {
+        "fn": [
+          "sort_rows",
+          "order_records",
+          "rank_rows"
+        ],
+        "arg": [
+          "field",
+          "column",
+          "key_name"
+        ]
+      },
+      "doc": "Sort a list of row dicts by the requested field.",
+      "insecure": [
+        "${helpers}",
+        "",
+        "def ${fn}(rows, ${arg}, reverse=False):",
+        "    ${doc}",
+        "    if not rows:",
+        "        return []",
+        "    return sorted(rows, key=lambda r: eval(${arg}, {}, r), reverse=reverse)"
+      ],
+      "secure": [
+        "${helpers}",
+        "",
+        "def ${fn}(rows, ${arg}, reverse=False):",
+        "    ${doc}",
+        "    if not rows:",
+        "        return []",
+        "    return sorted(rows, key=lambda r: r[${arg}], reverse=reverse)  # plain lookup, no eval()"
+      ]
+    },
+    {
+      "template_id": "cwe94-t05",
+      "expected_bandit": [
+        "B102"
+      ],
+      "hard": {
+        "insecure": null,
+        "secure": null
+      },
+      "names": {
+        "fn": [
+          "apply_overrides",
+          "set_variables",
+          "assign_values"
+        ],
+        "env": [
+          "env",
+          "namespace",
+          "context"
+        ]
+      },
+      "doc": "Apply name=value overrides from the command line to a namespace.",
+      "insecure": [
+        "import ast",
+        "",
+        "${helpers}",
+        "",
+        "def ${fn}(${env}: dict, overrides: list[str]) -> dict:",
+        "    ${doc}",
+        "    for item in overrides:",
+        "        name, _, value = item.partition(\"=\")",
+        "        exec(f\"{name} = {value}\", ${env})",
+        "    return ${env}"
+      ],
+      "secure": [
+        "import ast",
+        "",
+        "${helpers}",
+        "",
+        "def ${fn}(${env}: dict, overrides: list[str]) -> dict:",
+        "    ${doc}",
+        "    for item in overrides:",
+        "        name, _, value = item.partition(\"=\")",
+        "        ${env}[name] = ast.literal_eval(value)",
+        "    return ${env}"
+      ]
+    },
+    {
+      "template_id": "cwe94-t06",
+      "expected_bandit": [
+        "B102"
+      ],
+      "hard": {
+        "insecure": "hidden_token",
+        "secure": "mention_in_comment"
+      },
+      "names": {
+        "fn": [
+          "load_rules",
+          "import_rules",
+          "read_policy"
+        ],
+        "arg": [
+          "source",
+          "payload",
+          "blob"
+        ]
+      },
+      "doc": "Load rule definitions sent by a client into a namespace.",
+      "insecure": [
+        "import json",
+        "",
+        "${helpers}",
+        "",
+        "def ${fn}(${arg}: str) -> dict:",
+        "    ${doc}",
+        "    namespace: dict = {}",
+        "    exec(compile(${arg}, \"<rules>\", \"exec\"), namespace)",
+        "    namespace.pop(\"__builtins__\", None)",
+        "    return namespace"
+      ],
+      "secure": [
+        "import json",
+        "",
+        "${helpers}",
+        "",
+        "def ${fn}(${arg}: str) -> dict:",
+        "    ${doc}",
+        "    namespace: dict = {}",
+        "    namespace.update(json.loads(${arg}))  # data only; exec() here would run client code",
+        "    namespace.pop(\"__builtins__\", None)",
+        "    return namespace"
+      ]
+    }
+  ]
+}

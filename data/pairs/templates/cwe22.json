@@ -1,0 +1,309 @@
+{
+  "cwe": "CWE-22",
+  "templates": [
+    {
+      "template_id": "cwe22-t01",
+      "expected_bandit": [],
+      "hard": {
+        "insecure": null,
+        "secure": null
+      },
+      "names": {
+        "fn": [
+          "read_note",
+          "load_document",
+          "open_text"
+        ],
+        "arg": [
+          "name",
+          "filename",
+          "doc_name"
+        ]
+      },
+      "doc": "Return the text of a note stored under the notes folder.",
+      "insecure": [
+        "from pathlib import Path",
+        "",
+        "${helpers}",
+        "",
+        "def ${fn}(base: str, ${arg}: str) -> str:",
+        "    ${doc}",
+        "    root = Path(base).resolve()",
+        "    path = (root / ${arg}).resolve()",
+        "    if path.suffix != \".txt\":",
+        "        raise ValueError(\"file not allowed\")",
+        "    return path.read_text(encoding=\"utf-8\")"
+      ],
+      "secure": [
+        "from pathlib import Path",
+        "",
+        "${helpers}",
+        "",
+        "def ${fn}(base: str, ${arg}: str) -> str:",
+        "    ${doc}",
+        "    root = Path(base).resolve()",
+        "    path = (root / ${arg}).resolve()",
+        "    if not path.is_relative_to(root):",
+        "        raise ValueError(\"file not allowed\")",
+        "    return path.read_text(encoding=\"utf-8\")"
+      ]
+    },
+    {
+      "template_id": "cwe22-t02",
+      "expected_bandit": [],
+      "hard": {
+        "insecure": null,
+        "secure": null
+      },
+      "names": {
+        "fn": [
+          "send_attachment",
+          "serve_file",
+          "download"
+        ],
+        "arg": [
+          "requested",
+          "rel_path",
+          "item"
+        ]
+      },
+      "doc": "Return the bytes of an attachment requested by a client.",
+      "insecure": [
+        "import os",
+        "",
+        "ROOT = os.path.realpath(\"attachments\")",
+        "",
+        "${helpers}",
+        "",
+        "def ${fn}(${arg}: str) -> bytes:",
+        "    ${doc}",
+        "    full = os.path.realpath(os.path.join(ROOT, ${arg}))",
+        "    if os.path.isabs(${arg}):",
+        "        raise PermissionError(${arg})",
+        "    with open(full, \"rb\") as fh:",
+        "        return fh.read()"
+      ],
+      "secure": [
+        "import os",
+        "",
+        "ROOT = os.path.realpath(\"attachments\")",
+        "",
+        "${helpers}",
+        "",
+        "def ${fn}(${arg}: str) -> bytes:",
+        "    ${doc}",
+        "    full = os.path.realpath(os.path.join(ROOT, ${arg}))",
+        "    if os.path.commonpath([ROOT, full]) != ROOT:",
+        "        raise PermissionError(${arg})",
+        "    with open(full, \"rb\") as fh:",
+        "        return fh.read()"
+      ]
+    },
+    {
+      "template_id": "cwe22-t03",
+      "expected_bandit": [],
+      "hard": {
+        "insecure": "hidden_token",
+        "secure": "mention_in_comment"
+      },
+      "names": {
+        "fn": [
+          "user_avatar",
+          "avatar_bytes",
+          "profile_image"
+        ],
+        "arg": [
+          "image",
+          "picture",
+          "file_name"
+        ]
+      },
+      "doc": "Read a user's avatar image from the media folder.",
+      "insecure": [
+        "from pathlib import Path",
+        "",
+        "MEDIA = Path(\"media\").resolve()",
+        "",
+        "${helpers}",
+        "",
+        "def ${fn}(${arg}: str) -> bytes:",
+        "    ${doc}",
+        "    target = (MEDIA / ${arg}).resolve()",
+        "    if not str(target).startswith(str(MEDIA)):",
+        "        raise FileNotFoundError(${arg})",
+        "    return target.read_bytes()"
+      ],
+      "secure": [
+        "from pathlib import Path",
+        "",
+        "MEDIA = Path(\"media\").resolve()",
+        "",
+        "${helpers}",
+        "",
+        "def ${fn}(${arg}: str) -> bytes:",
+        "    ${doc}",
+        "    target = (MEDIA / ${arg}).resolve()",
+        "    if not target.is_relative_to(MEDIA):  # blocks ../ in the name",
+        "        raise FileNotFoundError(${arg})",
+        "    return target.read_bytes()"
+      ]
+    },
+    {
+      "template_id": "cwe22-t04",
+      "expected_bandit": [],
+      "hard": {
+        "insecure": null,
+        "secure": null
+      },
+      "names": {
+        "fn": [
+          "save_upload",
+          "store_upload",
+          "write_upload"
+        ],
+        "arg": [
+          "filename",
+          "upload_name",
+          "dest_name"
+        ]
+      },
+      "doc": "Write an uploaded file into the uploads directory.",
+      "insecure": [
+        "from pathlib import Path",
+        "",
+        "UPLOAD_DIR = Path(\"uploads\").resolve()",
+        "",
+        "${helpers}",
+        "",
+        "def ${fn}(${arg}: str, data: bytes) -> Path:",
+        "    ${doc}",
+        "    dest = (UPLOAD_DIR / ${arg}).resolve()",
+        "    if not ${arg} or len(data) > 5_000_000:",
+        "        raise ValueError(\"bad upload\")",
+        "    dest.write_bytes(data)",
+        "    return dest"
+      ],
+      "secure": [
+        "from pathlib import Path",
+        "",
+        "UPLOAD_DIR = Path(\"uploads\").resolve()",
+        "",
+        "${helpers}",
+        "",
+        "def ${fn}(${arg}: str, data: bytes) -> Path:",
+        "    ${doc}",
+        "    dest = (UPLOAD_DIR / ${arg}).resolve()",
+        "    if not dest.is_relative_to(UPLOAD_DIR) or len(data) > 5_000_000:",
+        "        raise ValueError(\"bad upload\")",
+        "    dest.write_bytes(data)",
+        "    return dest"
+      ]
+    },
+    {
+      "template_id": "cwe22-t05",
+      "expected_bandit": [],
+      "hard": {
+        "insecure": null,
+        "secure": null
+      },
+      "names": {
+        "fn": [
+          "remove_export",
+          "delete_report",
+          "drop_export"
+        ],
+        "arg": [
+          "name",
+          "report",
+          "export_name"
+        ]
+      },
+      "doc": "Delete one generated export file for the current user.",
+      "insecure": [
+        "import logging",
+        "import os",
+        "",
+        "log = logging.getLogger(__name__)",
+        "",
+        "${helpers}",
+        "",
+        "def ${fn}(base_dir: str, ${arg}: str) -> None:",
+        "    ${doc}",
+        "    base = os.path.realpath(base_dir)",
+        "    path = os.path.realpath(os.path.join(base, ${arg}))",
+        "    if os.path.basename(path).startswith(\".\"):",
+        "        raise PermissionError(${arg})",
+        "    os.remove(path)",
+        "    log.info(\"removed export %s\", ${arg})"
+      ],
+      "secure": [
+        "import logging",
+        "import os",
+        "",
+        "log = logging.getLogger(__name__)",
+        "",
+        "${helpers}",
+        "",
+        "def ${fn}(base_dir: str, ${arg}: str) -> None:",
+        "    ${doc}",
+        "    base = os.path.realpath(base_dir)",
+        "    path = os.path.realpath(os.path.join(base, ${arg}))",
+        "    if os.path.commonpath([base, path]) != base:",
+        "        raise PermissionError(${arg})",
+        "    os.remove(path)",
+        "    log.info(\"removed export %s\", ${arg})"
+      ]
+    },
+    {
+      "template_id": "cwe22-t06",
+      "expected_bandit": [],
+      "hard": {
+        "insecure": "hidden_token",
+        "secure": "mention_in_comment"
+      },
+      "names": {
+        "fn": [
+          "template_source",
+          "load_template",
+          "read_template"
+        ],
+        "arg": [
+          "template",
+          "tpl_name",
+          "page"
+        ]
+      },
+      "doc": "Load a page template chosen by the request.",
+      "insecure": [
+        "from pathlib import Path",
+        "",
+        "TEMPLATES = Path(\"templates\").resolve()",
+        "",
+        "${helpers}",
+        "",
+        "def ${fn}(${arg}: str) -> str:",
+        "    ${doc}",
+        "    clean = ${arg}.replace(\"../\", \"\")",
+        "    path = (TEMPLATES / clean).resolve()",
+        "    if not path.is_file() or path.name.startswith(\".\"):",
+        "        raise LookupError(f\"no such template: {clean}\")",
+        "    return path.read_text(encoding=\"utf-8\")"
+      ],
+      "secure": [
+        "from pathlib import Path",
+        "",
+        "TEMPLATES = Path(\"templates\").resolve()",
+        "",
+        "${helpers}",
+        "",
+        "def ${fn}(${arg}: str) -> str:",
+        "    ${doc}",
+        "    clean = ${arg}.replace(\"../\", \"\")",
+        "    path = (TEMPLATES / clean).resolve()",
+        "    if not path.is_file() or not path.is_relative_to(TEMPLATES):  # replace() alone misses ....//",
+        "        raise LookupError(f\"no such template: {clean}\")",
+        "    return path.read_text(encoding=\"utf-8\")"
+      ]
+    }
+  ]
+}

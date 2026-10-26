@@ -1,0 +1,286 @@
+{
+  "cwe": "CWE-78",
+  "templates": [
+    {
+      "template_id": "cwe78-t01",
+      "expected_bandit": [
+        "B602"
+      ],
+      "hard": {
+        "insecure": null,
+        "secure": null
+      },
+      "names": {
+        "fn": [
+          "list_folder",
+          "show_listing",
+          "dir_entries"
+        ],
+        "arg": [
+          "folder",
+          "target",
+          "location"
+        ]
+      },
+      "doc": "Return the long listing of a folder, one line per entry.",
+      "insecure": [
+        "import subprocess",
+        "",
+        "${helpers}",
+        "",
+        "def ${fn}(${arg}):",
+        "    ${doc}",
+        "    result = subprocess.run(f\"ls -l {${arg}}\", shell=True, capture_output=True, text=True)",
+        "    return result.stdout.splitlines()"
+      ],
+      "secure": [
+        "import subprocess",
+        "",
+        "${helpers}",
+        "",
+        "def ${fn}(${arg}):",
+        "    ${doc}",
+        "    result = subprocess.run([\"ls\", \"-l\", ${arg}], capture_output=True, text=True)",
+        "    return result.stdout.splitlines()"
+      ]
+    },
+    {
+      "template_id": "cwe78-t02",
+      "expected_bandit": [
+        "B605"
+      ],
+      "hard": {
+        "insecure": null,
+        "secure": null
+      },
+      "names": {
+        "fn": [
+          "host_is_up",
+          "can_reach",
+          "ping_once"
+        ],
+        "arg": [
+          "host",
+          "address",
+          "node"
+        ]
+      },
+      "doc": "Send one ping and report whether the host answered.",
+      "insecure": [
+        "import os",
+        "import subprocess",
+        "",
+        "${helpers}",
+        "",
+        "def ${fn}(${arg}):",
+        "    ${doc}",
+        "    status = os.system(\"ping -c 1 \" + ${arg})",
+        "    return status == 0"
+      ],
+      "secure": [
+        "import os",
+        "import subprocess",
+        "",
+        "${helpers}",
+        "",
+        "def ${fn}(${arg}):",
+        "    ${doc}",
+        "    status = subprocess.call([\"ping\", \"-c\", \"1\", ${arg}])",
+        "    return status == 0"
+      ]
+    },
+    {
+      "template_id": "cwe78-t03",
+      "expected_bandit": [
+        "B602"
+      ],
+      "hard": {
+        "insecure": "hidden_token",
+        "secure": "mention_in_comment"
+      },
+      "names": {
+        "fn": [
+          "pack_folder",
+          "make_archive",
+          "bundle_dir"
+        ],
+        "src": [
+          "src",
+          "source",
+          "folder"
+        ]
+      },
+      "doc": "Compress a folder into a tar.gz next to it.",
+      "insecure": [
+        "from subprocess import check_output as fetch",
+        "",
+        "${helpers}",
+        "",
+        "def ${fn}(${src}, dest):",
+        "    ${doc}",
+        "    if not dest.endswith(\".tar.gz\"):",
+        "        dest += \".tar.gz\"",
+        "    fetch(f\"tar -czf {dest} {${src}}\", shell=True)",
+        "    return dest"
+      ],
+      "secure": [
+        "from subprocess import check_output as fetch",
+        "",
+        "${helpers}",
+        "",
+        "def ${fn}(${src}, dest):",
+        "    ${doc}",
+        "    if not dest.endswith(\".tar.gz\"):",
+        "        dest += \".tar.gz\"",
+        "    fetch([\"tar\", \"-czf\", dest, ${src}])  # list args, never shell=True",
+        "    return dest"
+      ]
+    },
+    {
+      "template_id": "cwe78-t04",
+      "expected_bandit": [
+        "B602"
+      ],
+      "hard": {
+        "insecure": null,
+        "secure": null
+      },
+      "names": {
+        "fn": [
+          "recent_commits",
+          "commit_log",
+          "last_changes"
+        ],
+        "repo": [
+          "repo",
+          "checkout",
+          "workdir"
+        ]
+      },
+      "doc": "Read the last commit subjects of a branch.",
+      "insecure": [
+        "import subprocess",
+        "",
+        "${helpers}",
+        "",
+        "def ${fn}(${repo}, branch, count=10):",
+        "    ${doc}",
+        "    proc = subprocess.Popen(\"git log --oneline -n %d %s\" % (count, branch), shell=True,",
+        "                            cwd=${repo}, stdout=subprocess.PIPE, text=True)",
+        "    out, _ = proc.communicate()",
+        "    return [line.split(\" \", 1)[-1] for line in out.splitlines()]"
+      ],
+      "secure": [
+        "import subprocess",
+        "",
+        "${helpers}",
+        "",
+        "def ${fn}(${repo}, branch, count=10):",
+        "    ${doc}",
+        "    proc = subprocess.Popen([\"git\", \"log\", \"--oneline\", \"-n\", str(count), branch],",
+        "                            cwd=${repo}, stdout=subprocess.PIPE, text=True)",
+        "    out, _ = proc.communicate()",
+        "    return [line.split(\" \", 1)[-1] for line in out.splitlines()]"
+      ]
+    },
+    {
+      "template_id": "cwe78-t05",
+      "expected_bandit": [
+        "B605"
+      ],
+      "hard": {
+        "insecure": null,
+        "secure": null
+      },
+      "names": {
+        "fn": [
+          "disk_usage",
+          "folder_size",
+          "space_used"
+        ],
+        "arg": [
+          "path",
+          "directory",
+          "mount"
+        ]
+      },
+      "doc": "Return the human readable size of a directory.",
+      "insecure": [
+        "import os",
+        "import subprocess",
+        "",
+        "${helpers}",
+        "",
+        "def ${fn}(${arg}):",
+        "    ${doc}",
+        "    with os.popen(\"du -sh \" + ${arg}) as pipe:",
+        "        line = pipe.read()",
+        "    size, _, _ = line.partition(\"\\t\")",
+        "    return size.strip()"
+      ],
+      "secure": [
+        "import os",
+        "import subprocess",
+        "",
+        "${helpers}",
+        "",
+        "def ${fn}(${arg}):",
+        "    ${doc}",
+        "    line = subprocess.run([\"du\", \"-sh\", ${arg}], capture_output=True, text=True).stdout",
+        "    size, _, _ = line.partition(\"\\t\")",
+        "    return size.strip()"
+      ]
+    },
+    {
+      "template_id": "cwe78-t06",
+      "expected_bandit": [
+        "B605"
+      ],
+      "hard": {
+        "insecure": "hidden_token",
+        "secure": "mention_in_comment"
+      },
+      "names": {
+        "fn": [
+          "lookup_owner",
+          "domain_record",
+          "registrant_info"
+        ],
+        "arg": [
+          "domain",
+          "name",
+          "site"
+        ]
+      },
+      "doc": "Fetch whois text for a domain and keep the registrar lines.",
+      "insecure": [
+        "import logging",
+        "import subprocess",
+        "",
+        "log = logging.getLogger(__name__)",
+        "",
+        "${helpers}",
+        "",
+        "def ${fn}(${arg}):",
+        "    ${doc}",
+        "    log.info(\"whois lookup for %s\", ${arg})",
+        "    text = subprocess.getoutput(\"whois \" + ${arg})",
+        "    return [ln for ln in text.splitlines() if ln.lower().startswith(\"registrar\")]"
+      ],
+      "secure": [
+        "import logging",
+        "import subprocess",
+        "",
+        "log = logging.getLogger(__name__)",
+        "",
+        "${helpers}",
+        "",
+        "def ${fn}(${arg}):",
+        "    ${doc}",
+        "    log.info(\"whois lookup for %s (no os.system, no shell)\", ${arg})",
+        "    text = subprocess.check_output([\"whois\", ${arg}], text=True)",
+        "    return [ln for ln in text.splitlines() if ln.lower().startswith(\"registrar\")]"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,273 @@
+{
+  "cwe": "CWE-89",
+  "templates": [
+    {
+      "template_id": "cwe89-t01",
+      "expected_bandit": [
+        "B608"
+      ],
+      "hard": {
+        "insecure": null,
+        "secure": null
+      },
+      "names": {
+        "fn": [
+          "find_user",
+          "user_by_name",
+          "lookup_member"
+        ],
+        "arg": [
+          "name",
+          "username",
+          "login"
+        ]
+      },
+      "doc": "Return the id and email of the user with this name.",
+      "insecure": [
+        "import sqlite3",
+        "",
+        "${helpers}",
+        "",
+        "def ${fn}(conn: sqlite3.Connection, ${arg}: str):",
+        "    ${doc}",
+        "    cur = conn.cursor()",
+        "    cur.execute(f\"SELECT id, email FROM users WHERE name = '{${arg}}'\")",
+        "    return cur.fetchone()"
+      ],
+      "secure": [
+        "import sqlite3",
+        "",
+        "${helpers}",
+        "",
+        "def ${fn}(conn: sqlite3.Connection, ${arg}: str):",
+        "    ${doc}",
+        "    cur = conn.cursor()",
+        "    cur.execute(\"SELECT id, email FROM users WHERE name = ?\", (${arg},))",
+        "    return cur.fetchone()"
+      ]
+    },
+    {
+      "template_id": "cwe89-t02",
+      "expected_bandit": [
+        "B608"
+      ],
+      "hard": {
+        "insecure": null,
+        "secure": null
+      },
+      "names": {
+        "fn": [
+          "purge_sessions",
+          "drop_expired",
+          "clean_sessions"
+        ],
+        "arg": [
+          "cutoff",
+          "before",
+          "limit_date"
+        ]
+      },
+      "doc": "Delete sessions that expired before the cutoff date.",
+      "insecure": [
+        "import sqlite3",
+        "",
+        "${helpers}",
+        "",
+        "def ${fn}(db_path, ${arg}):",
+        "    ${doc}",
+        "    with sqlite3.connect(db_path) as conn:",
+        "        conn.execute(\"DELETE FROM sessions WHERE expires_at < '%s'\" % ${arg})",
+        "        return conn.total_changes"
+      ],
+      "secure": [
+        "import sqlite3",
+        "",
+        "${helpers}",
+        "",
+        "def ${fn}(db_path, ${arg}):",
+        "    ${doc}",
+        "    with sqlite3.connect(db_path) as conn:",
+        "        conn.execute(\"DELETE FROM sessions WHERE expires_at < ?\", (${arg},))",
+        "        return conn.total_changes"
+      ]
+    },
+    {
+      "template_id": "cwe89-t03",
+      "expected_bandit": [
+        "B608"
+      ],
+      "hard": {
+        "insecure": "hidden_token",
+        "secure": "mention_in_comment"
+      },
+      "names": {
+        "fn": [
+          "products_in",
+          "list_category",
+          "catalog_page"
+        ],
+        "arg": [
+          "category",
+          "section",
+          "group"
+        ]
+      },
+      "doc": "List product titles and prices in a category, cheapest first.",
+      "insecure": [
+        "${helpers}",
+        "",
+        "def ${fn}(cur, ${arg}):",
+        "    ${doc}",
+        "    q = \"SELECT title, price FROM products WHERE category = '{}' ORDER BY price\".format(${arg})",
+        "    rows = cur.execute(q).fetchall()",
+        "    return [(title, float(price)) for title, price in rows]"
+      ],
+      "secure": [
+        "${helpers}",
+        "",
+        "def ${fn}(cur, ${arg}):",
+        "    ${doc}",
+        "    q = \"SELECT title, price FROM products WHERE category = ? ORDER BY price\"  # no .format() in SQL",
+        "    rows = cur.execute(q, (${arg},)).fetchall()",
+        "    return [(title, float(price)) for title, price in rows]"
+      ]
+    },
+    {
+      "template_id": "cwe89-t04",
+      "expected_bandit": [
+        "B608"
+      ],
+      "hard": {
+        "insecure": null,
+        "secure": null
+      },
+      "names": {
+        "fn": [
+          "set_status",
+          "mark_account",
+          "update_state"
+        ],
+        "arg": [
+          "status",
+          "state",
+          "flag"
+        ]
+      },
+      "doc": "Change the status column of one account.",
+      "insecure": [
+        "import logging",
+        "",
+        "${helpers}",
+        "",
+        "def ${fn}(conn, acct_id, ${arg}):",
+        "    ${doc}",
+        "    sql = \"UPDATE accounts SET status = '\" + ${arg} + \"' WHERE id = \" + str(acct_id)",
+        "    conn.execute(sql)",
+        "    conn.commit()",
+        "    logging.getLogger(\"accounts\").debug(\"status of %s set\", acct_id)"
+      ],
+      "secure": [
+        "import logging",
+        "",
+        "${helpers}",
+        "",
+        "def ${fn}(conn, acct_id, ${arg}):",
+        "    ${doc}",
+        "    sql = \"UPDATE accounts SET status = ? WHERE id = ?\"",
+        "    conn.execute(sql, (${arg}, acct_id))",
+        "    conn.commit()",
+        "    logging.getLogger(\"accounts\").debug(\"status of %s set\", acct_id)"
+      ]
+    },
+    {
+      "template_id": "cwe89-t05",
+      "expected_bandit": [
+        "B608"
+      ],
+      "hard": {
+        "insecure": null,
+        "secure": null
+      },
+      "names": {
+        "fn": [
+          "record_event",
+          "log_event",
+          "store_event"
+        ],
+        "kind": [
+          "kind",
+          "category",
+          "event_type"
+        ]
+      },
+      "doc": "Insert one audit event row and return its id.",
+      "insecure": [
+        "from datetime import datetime, timezone",
+        "",
+        "${helpers}",
+        "",
+        "def ${fn}(cursor, ${kind}, detail):",
+        "    ${doc}",
+        "    stamp = datetime.now(timezone.utc).isoformat()",
+        "    cursor.execute(f\"INSERT INTO events (kind, detail, created) VALUES ('{${kind}}', '{detail}', '{stamp}')\")",
+        "    return cursor.lastrowid"
+      ],
+      "secure": [
+        "from datetime import datetime, timezone",
+        "",
+        "${helpers}",
+        "",
+        "def ${fn}(cursor, ${kind}, detail):",
+        "    ${doc}",
+        "    stamp = datetime.now(timezone.utc).isoformat()",
+        "    cursor.execute(\"INSERT INTO events (kind, detail, created) VALUES (%s, %s, %s)\", (${kind}, detail, stamp))",
+        "    return cursor.lastrowid"
+      ]
+    },
+    {
+      "template_id": "cwe89-t06",
+      "expected_bandit": [
+        "B608"
+      ],
+      "hard": {
+        "insecure": "hidden_token",
+        "secure": "mention_in_comment"
+      },
+      "names": {
+        "fn": [
+          "search_notes",
+          "notes_matching",
+          "grep_notes"
+        ],
+        "arg": [
+          "term",
+          "needle",
+          "phrase"
+        ]
+      },
+      "doc": "Find notes whose body contains the search term.",
+      "insecure": [
+        "import sqlite3",
+        "",
+        "${helpers}",
+        "",
+        "def ${fn}(conn: sqlite3.Connection, ${arg}: str, limit: int = 20):",
+        "    ${doc}",
+        "    pattern = \"%\" + ${arg}.strip() + \"%\"",
+        "    text = \"SELECT id, body FROM notes WHERE body LIKE '\" + pattern + \"' LIMIT 20\"",
+        "    return conn.execute(text).fetchall()[:limit]"
+      ],
+      "secure": [
+        "import sqlite3",
+        "",
+        "${helpers}",
+        "",
+        "def ${fn}(conn: sqlite3.Connection, ${arg}: str, limit: int = 20):",
+        "    ${doc}",
+        "    pattern = \"%\" + ${arg}.strip() + \"%\"",
+        "    text = \"SELECT id, body FROM notes WHERE body LIKE ? LIMIT 20\"  # concatenating here = SQL injection",
+        "    return conn.execute(text, (pattern,)).fetchall()[:limit]"
+      ]
+    }
+  ]
+}
