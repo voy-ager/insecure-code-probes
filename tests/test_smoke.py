@@ -12,8 +12,9 @@ REQUIRED = {
     "extract": ["max_len", "batch_size", "exclude_first_token", "pooling", "store_dtype"],
     "probe": [
         "outer_folds", "inner_folds", "select_layer_range", "transfer_train_cwes",
-        "C", "max_iter", "n_boot",
+        "C", "max_iter",
     ],
+    "stats": ["n_boot"],
     "generate": ["samples_per_prompt", "temperature", "top_p", "max_new_tokens"],
     "judge": ["system_prompt", "prompt"],
 }
@@ -30,6 +31,14 @@ def test_config_has_all_keys(name):
     assert cfg["model"]["id"].endswith("-Instruct")
     assert set(cfg["probe"]["transfer_train_cwes"]) == BANDIT_CWES
     assert cfg["extract"]["exclude_first_token"] is True
+
+
+def test_configs_differ_only_in_model_paths_and_samples():
+    pilot, main = (load_config(ROOT / "configs" / n) for n in ["pilot_0.5b.toml", "main_1.5b.toml"])
+    for cfg in (pilot, main):
+        del cfg["model"]["id"], cfg["model"]["revision"], cfg["paths"]
+        del cfg["generate"]["samples_per_prompt"]
+    assert pilot == main
 
 
 def test_no_init_under_data():
