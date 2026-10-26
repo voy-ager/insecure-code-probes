@@ -1,0 +1,291 @@
+{
+  "cwe": "CWE-502",
+  "templates": [
+    {
+      "template_id": "cwe502-t01",
+      "expected_bandit": [
+        "B301"
+      ],
+      "hard": {
+        "insecure": null,
+        "secure": null
+      },
+      "names": {
+        "fn": [
+          "read_cache",
+          "load_cached",
+          "cache_get"
+        ],
+        "arg": [
+          "blob",
+          "raw",
+          "payload"
+        ]
+      },
+      "doc": "Decode a cached result fetched from the shared cache.",
+      "insecure": [
+        "import json",
+        "import pickle",
+        "",
+        "${helpers}",
+        "",
+        "def ${fn}(${arg}: bytes):",
+        "    ${doc}",
+        "    if not ${arg}:",
+        "        return None",
+        "    return pickle.loads(${arg})"
+      ],
+      "secure": [
+        "import json",
+        "import pickle",
+        "",
+        "${helpers}",
+        "",
+        "def ${fn}(${arg}: bytes):",
+        "    ${doc}",
+        "    if not ${arg}:",
+        "        return None",
+        "    return json.loads(${arg})"
+      ]
+    },
+    {
+      "template_id": "cwe502-t02",
+      "expected_bandit": [
+        "B506"
+      ],
+      "hard": {
+        "insecure": null,
+        "secure": null
+      },
+      "names": {
+        "fn": [
+          "load_manifest",
+          "read_manifest",
+          "parse_manifest"
+        ],
+        "arg": [
+          "path",
+          "manifest_file",
+          "location"
+        ]
+      },
+      "doc": "Read an uploaded deployment manifest.",
+      "insecure": [
+        "import yaml",
+        "",
+        "${helpers}",
+        "",
+        "def ${fn}(${arg}):",
+        "    ${doc}",
+        "    with open(${arg}, encoding=\"utf-8\") as fh:",
+        "        data = yaml.load(fh)",
+        "    return data.get(\"services\", [])"
+      ],
+      "secure": [
+        "import yaml",
+        "",
+        "${helpers}",
+        "",
+        "def ${fn}(${arg}):",
+        "    ${doc}",
+        "    with open(${arg}, encoding=\"utf-8\") as fh:",
+        "        data = yaml.safe_load(fh)",
+        "    return data.get(\"services\", [])"
+      ]
+    },
+    {
+      "template_id": "cwe502-t03",
+      "expected_bandit": [
+        "B301"
+      ],
+      "hard": {
+        "insecure": "hidden_token",
+        "secure": "mention_in_comment"
+      },
+      "names": {
+        "fn": [
+          "handle_message",
+          "on_message",
+          "process_frame"
+        ],
+        "arg": [
+          "frame",
+          "message",
+          "packet"
+        ]
+      },
+      "doc": "Decode a message body received from a client socket.",
+      "insecure": [
+        "import json",
+        "from pickle import loads as decode_blob",
+        "",
+        "${helpers}",
+        "",
+        "def ${fn}(${arg}: bytes) -> dict:",
+        "    ${doc}",
+        "    header, _, body = ${arg}.partition(b\"\\n\")",
+        "    msg = decode_blob(body)",
+        "    msg[\"header\"] = header.decode()",
+        "    return msg"
+      ],
+      "secure": [
+        "import json",
+        "from pickle import loads as decode_blob",
+        "",
+        "${helpers}",
+        "",
+        "def ${fn}(${arg}: bytes) -> dict:",
+        "    ${doc}",
+        "    header, _, body = ${arg}.partition(b\"\\n\")",
+        "    msg = json.loads(body)  # pickle.loads would run code from the client",
+        "    msg[\"header\"] = header.decode()",
+        "    return msg"
+      ]
+    },
+    {
+      "template_id": "cwe502-t04",
+      "expected_bandit": [
+        "B302"
+      ],
+      "hard": {
+        "insecure": null,
+        "secure": null
+      },
+      "names": {
+        "fn": [
+          "restore_table",
+          "unpack_table",
+          "decode_table"
+        ],
+        "arg": [
+          "data",
+          "chunk",
+          "encoded"
+        ]
+      },
+      "doc": "Rebuild a lookup table sent by a worker process.",
+      "insecure": [
+        "import json",
+        "import marshal",
+        "",
+        "${helpers}",
+        "",
+        "def ${fn}(${arg}: bytes) -> dict:",
+        "    ${doc}",
+        "    table = marshal.loads(${arg})",
+        "    if not isinstance(table, dict):",
+        "        raise TypeError(\"expected a mapping\")",
+        "    return table"
+      ],
+      "secure": [
+        "import json",
+        "import marshal",
+        "",
+        "${helpers}",
+        "",
+        "def ${fn}(${arg}: bytes) -> dict:",
+        "    ${doc}",
+        "    table = json.loads(${arg})",
+        "    if not isinstance(table, dict):",
+        "        raise TypeError(\"expected a mapping\")",
+        "    return table"
+      ]
+    },
+    {
+      "template_id": "cwe502-t05",
+      "expected_bandit": [
+        "B301"
+      ],
+      "hard": {
+        "insecure": null,
+        "secure": null
+      },
+      "names": {
+        "fn": [
+          "load_session",
+          "restore_session",
+          "read_session"
+        ],
+        "arg": [
+          "session_file",
+          "path",
+          "store"
+        ]
+      },
+      "doc": "Restore a user session that was saved to disk by the web tier.",
+      "insecure": [
+        "import json",
+        "import pickle",
+        "from pathlib import Path",
+        "",
+        "${helpers}",
+        "",
+        "def ${fn}(${arg}: Path):",
+        "    ${doc}",
+        "    if not ${arg}.exists():",
+        "        return {}",
+        "    with ${arg}.open(\"rb\") as fh:",
+        "        return pickle.load(fh)"
+      ],
+      "secure": [
+        "import json",
+        "import pickle",
+        "from pathlib import Path",
+        "",
+        "${helpers}",
+        "",
+        "def ${fn}(${arg}: Path):",
+        "    ${doc}",
+        "    if not ${arg}.exists():",
+        "        return {}",
+        "    with ${arg}.open(\"rb\") as fh:",
+        "        return json.load(fh)"
+      ]
+    },
+    {
+      "template_id": "cwe502-t06",
+      "expected_bandit": [
+        "B506"
+      ],
+      "hard": {
+        "insecure": "hidden_token",
+        "secure": "mention_in_comment"
+      },
+      "names": {
+        "fn": [
+          "parse_request_body",
+          "read_body",
+          "decode_body"
+        ],
+        "arg": [
+          "text",
+          "body",
+          "content"
+        ]
+      },
+      "doc": "Parse a YAML request body into a dict of options.",
+      "insecure": [
+        "import yaml",
+        "",
+        "${helpers}",
+        "",
+        "def ${fn}(${arg}: str) -> dict:",
+        "    ${doc}",
+        "    options = yaml.load(${arg}, Loader=yaml.Loader) or {}",
+        "    options.setdefault(\"dry_run\", True)",
+        "    return options"
+      ],
+      "secure": [
+        "import yaml",
+        "",
+        "${helpers}",
+        "",
+        "def ${fn}(${arg}: str) -> dict:",
+        "    ${doc}",
+        "    options = yaml.load(${arg}, Loader=yaml.SafeLoader) or {}  # plain yaml.load is unsafe",
+        "    options.setdefault(\"dry_run\", True)",
+        "    return options"
+      ]
+    }
+  ]
+}

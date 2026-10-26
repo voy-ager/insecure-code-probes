@@ -1,0 +1,301 @@
+{
+  "cwe": "CWE-327",
+  "templates": [
+    {
+      "template_id": "cwe327-t01",
+      "expected_bandit": [
+        "B324"
+      ],
+      "hard": {
+        "insecure": null,
+        "secure": null
+      },
+      "names": {
+        "fn": [
+          "file_checksum",
+          "digest_file",
+          "hash_upload"
+        ],
+        "arg": [
+          "path",
+          "filename",
+          "upload"
+        ]
+      },
+      "doc": "Checksum a downloaded file so tampering can be detected.",
+      "insecure": [
+        "import hashlib",
+        "",
+        "${helpers}",
+        "",
+        "def ${fn}(${arg}, chunk_size=65536):",
+        "    ${doc}",
+        "    digest = hashlib.md5()",
+        "    with open(${arg}, \"rb\") as fh:",
+        "        for chunk in iter(lambda: fh.read(chunk_size), b\"\"):",
+        "            digest.update(chunk)",
+        "    return digest.hexdigest()"
+      ],
+      "secure": [
+        "import hashlib",
+        "",
+        "${helpers}",
+        "",
+        "def ${fn}(${arg}, chunk_size=65536):",
+        "    ${doc}",
+        "    digest = hashlib.sha256()",
+        "    with open(${arg}, \"rb\") as fh:",
+        "        for chunk in iter(lambda: fh.read(chunk_size), b\"\"):",
+        "            digest.update(chunk)",
+        "    return digest.hexdigest()"
+      ]
+    },
+    {
+      "template_id": "cwe327-t02",
+      "expected_bandit": [
+        "B324"
+      ],
+      "hard": {
+        "insecure": null,
+        "secure": null
+      },
+      "names": {
+        "fn": [
+          "store_reset_code",
+          "save_reset_code",
+          "remember_code"
+        ],
+        "arg": [
+          "code",
+          "reset_code",
+          "otp"
+        ]
+      },
+      "doc": "Store only a digest of the one-time reset code.",
+      "insecure": [
+        "import hashlib",
+        "import time",
+        "",
+        "${helpers}",
+        "",
+        "def ${fn}(db: dict, user_id: int, ${arg}: str) -> None:",
+        "    ${doc}",
+        "    db[user_id] = {",
+        "        \"digest\": hashlib.sha1(${arg}.encode()).hexdigest(),",
+        "        \"created\": time.time(),",
+        "    }"
+      ],
+      "secure": [
+        "import hashlib",
+        "import time",
+        "",
+        "${helpers}",
+        "",
+        "def ${fn}(db: dict, user_id: int, ${arg}: str) -> None:",
+        "    ${doc}",
+        "    db[user_id] = {",
+        "        \"digest\": hashlib.sha256(${arg}.encode()).hexdigest(),",
+        "        \"created\": time.time(),",
+        "    }"
+      ]
+    },
+    {
+      "template_id": "cwe327-t03",
+      "expected_bandit": [
+        "B324"
+      ],
+      "hard": {
+        "insecure": "hidden_token",
+        "secure": "mention_in_comment"
+      },
+      "names": {
+        "fn": [
+          "sign_payload",
+          "payload_tag",
+          "message_tag"
+        ],
+        "arg": [
+          "body",
+          "payload",
+          "message"
+        ]
+      },
+      "doc": "Compute the integrity tag that is sent along with a payload.",
+      "insecure": [
+        "from hashlib import md5 as h, sha256",
+        "",
+        "${helpers}",
+        "",
+        "def ${fn}(${arg}: bytes, salt: bytes) -> str:",
+        "    ${doc}",
+        "    if not ${arg}:",
+        "        raise ValueError(\"empty payload\")",
+        "    return h(salt + ${arg}).hexdigest()"
+      ],
+      "secure": [
+        "from hashlib import md5 as h, sha256",
+        "",
+        "${helpers}",
+        "",
+        "def ${fn}(${arg}: bytes, salt: bytes) -> str:",
+        "    ${doc}",
+        "    if not ${arg}:",
+        "        raise ValueError(\"empty payload\")",
+        "    return sha256(salt + ${arg}).hexdigest()  # md5 is broken for integrity"
+      ]
+    },
+    {
+      "template_id": "cwe327-t04",
+      "expected_bandit": [
+        "B324"
+      ],
+      "hard": {
+        "insecure": null,
+        "secure": null
+      },
+      "names": {
+        "fn": [
+          "verify_download",
+          "check_artifact",
+          "matches_digest"
+        ],
+        "arg": [
+          "data",
+          "content",
+          "artifact"
+        ]
+      },
+      "doc": "Compare downloaded bytes with the published digest.",
+      "insecure": [
+        "import hashlib",
+        "import hmac",
+        "",
+        "${helpers}",
+        "",
+        "def ${fn}(${arg}: bytes, expected_hex: str) -> bool:",
+        "    ${doc}",
+        "    actual = hashlib.sha1(${arg}).hexdigest()",
+        "    return hmac.compare_digest(actual, expected_hex.lower())"
+      ],
+      "secure": [
+        "import hashlib",
+        "import hmac",
+        "",
+        "${helpers}",
+        "",
+        "def ${fn}(${arg}: bytes, expected_hex: str) -> bool:",
+        "    ${doc}",
+        "    actual = hashlib.sha256(${arg}).hexdigest()",
+        "    return hmac.compare_digest(actual, expected_hex.lower())"
+      ]
+    },
+    {
+      "template_id": "cwe327-t05",
+      "expected_bandit": [
+        "B324"
+      ],
+      "hard": {
+        "insecure": null,
+        "secure": null
+      },
+      "names": {
+        "cls": [
+          "RecordHasher",
+          "Fingerprinter",
+          "IntegrityLog"
+        ],
+        "fn": [
+          "add",
+          "feed",
+          "push"
+        ]
+      },
+      "doc": "Accumulate records into a tamper-evident digest.",
+      "insecure": [
+        "import hashlib",
+        "",
+        "",
+        "class ${cls}:",
+        "    ${doc}",
+        "",
+        "    def __init__(self):",
+        "        self._h = hashlib.md5()",
+        "        self.count = 0",
+        "",
+        "    def ${fn}(self, record: str) -> None:",
+        "        self._h.update(record.encode(\"utf-8\"))",
+        "        self.count += 1",
+        "",
+        "    def value(self) -> str:",
+        "        return self._h.hexdigest()",
+        "",
+        "${helpers}"
+      ],
+      "secure": [
+        "import hashlib",
+        "",
+        "",
+        "class ${cls}:",
+        "    ${doc}",
+        "",
+        "    def __init__(self):",
+        "        self._h = hashlib.sha256()",
+        "        self.count = 0",
+        "",
+        "    def ${fn}(self, record: str) -> None:",
+        "        self._h.update(record.encode(\"utf-8\"))",
+        "        self.count += 1",
+        "",
+        "    def value(self) -> str:",
+        "        return self._h.hexdigest()",
+        "",
+        "${helpers}"
+      ]
+    },
+    {
+      "template_id": "cwe327-t06",
+      "expected_bandit": [
+        "B324"
+      ],
+      "hard": {
+        "insecure": "hidden_token",
+        "secure": "mention_in_comment"
+      },
+      "names": {
+        "fn": [
+          "bundle_tag",
+          "config_digest",
+          "release_tag"
+        ],
+        "arg": [
+          "content",
+          "bundle",
+          "text"
+        ]
+      },
+      "doc": "Compute the integrity tag published with a config bundle.",
+      "insecure": [
+        "import hashlib",
+        "",
+        "${helpers}",
+        "",
+        "def ${fn}(${arg}: str, salt: bytes) -> str:",
+        "    ${doc}",
+        "    h = hashlib.new(\"md5\", salt)",
+        "    h.update(${arg}.encode())",
+        "    return salt.hex() + \"$$\" + h.hexdigest()"
+      ],
+      "secure": [
+        "import hashlib",
+        "",
+        "${helpers}",
+        "",
+        "def ${fn}(${arg}: str, salt: bytes) -> str:",
+        "    ${doc}",
+        "    h = hashlib.new(\"sha256\", salt)  # md5 must not be used here",
+        "    h.update(${arg}.encode())",
+        "    return salt.hex() + \"$$\" + h.hexdigest()"
+      ]
+    }
+  ]
+}

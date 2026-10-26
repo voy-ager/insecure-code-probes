@@ -1,0 +1,38 @@
+{
+  "helpers": [
+    [
+      "DEFAULT_LIMIT = 100"
+    ],
+    [
+      "RETRY_COUNT = 3"
+    ],
+    [
+      "ENCODING = \"utf-8\""
+    ],
+    [
+      "LOG_PREFIX = \"[app]\""
+    ],
+    [
+      "VERSION = (1, 4, 2)"
+    ],
+    [
+      "_seen: set[str] = set()"
+    ],
+    [
+      "def _clamp(value, low, high):",
+      "    return max(low, min(value, high))"
+    ],
+    [
+      "def _is_blank(text):",
+      "    return not text or text.isspace()"
+    ],
+    [
+      "def _chunks(items, size):",
+      "    return [items[i:i + size] for i in range(0, len(items), size)]"
+    ],
+    [
+      "def _first(items, default=None):",
+      "    return next(iter(items), default)"
+    ]
+  ]
+}

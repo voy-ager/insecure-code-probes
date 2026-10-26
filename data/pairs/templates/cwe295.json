@@ -1,0 +1,285 @@
+{
+  "cwe": "CWE-295",
+  "templates": [
+    {
+      "template_id": "cwe295-t01",
+      "expected_bandit": [
+        "B501"
+      ],
+      "hard": {
+        "insecure": null,
+        "secure": null
+      },
+      "names": {
+        "fn": [
+          "fetch_status",
+          "service_health",
+          "check_service"
+        ],
+        "arg": [
+          "url",
+          "endpoint",
+          "address"
+        ]
+      },
+      "doc": "Return the JSON status document of a remote service.",
+      "insecure": [
+        "import requests",
+        "",
+        "${helpers}",
+        "",
+        "def ${fn}(${arg}):",
+        "    ${doc}",
+        "    resp = requests.get(${arg}, verify=False)",
+        "    resp.raise_for_status()",
+        "    return resp.json()"
+      ],
+      "secure": [
+        "import requests",
+        "",
+        "${helpers}",
+        "",
+        "def ${fn}(${arg}):",
+        "    ${doc}",
+        "    resp = requests.get(${arg}, timeout=10)",
+        "    resp.raise_for_status()",
+        "    return resp.json()"
+      ]
+    },
+    {
+      "template_id": "cwe295-t02",
+      "expected_bandit": [
+        "B323"
+      ],
+      "hard": {
+        "insecure": null,
+        "secure": null
+      },
+      "names": {
+        "fn": [
+          "download_page",
+          "read_url",
+          "get_page"
+        ],
+        "arg": [
+          "url",
+          "link",
+          "address"
+        ]
+      },
+      "doc": "Download a page over HTTPS and return its text.",
+      "insecure": [
+        "import ssl",
+        "import urllib.request",
+        "",
+        "${helpers}",
+        "",
+        "def ${fn}(${arg}: str) -> str:",
+        "    ${doc}",
+        "    ctx = ssl._create_unverified_context()",
+        "    with urllib.request.urlopen(${arg}, context=ctx, timeout=15) as resp:",
+        "        return resp.read().decode(\"utf-8\", errors=\"replace\")"
+      ],
+      "secure": [
+        "import ssl",
+        "import urllib.request",
+        "",
+        "${helpers}",
+        "",
+        "def ${fn}(${arg}: str) -> str:",
+        "    ${doc}",
+        "    ctx = ssl.create_default_context()",
+        "    with urllib.request.urlopen(${arg}, context=ctx, timeout=15) as resp:",
+        "        return resp.read().decode(\"utf-8\", errors=\"replace\")"
+      ]
+    },
+    {
+      "template_id": "cwe295-t03",
+      "expected_bandit": [
+        "B501"
+      ],
+      "hard": {
+        "insecure": "hidden_token",
+        "secure": "mention_in_comment"
+      },
+      "names": {
+        "fn": [
+          "pull_releases",
+          "latest_releases",
+          "release_list"
+        ],
+        "arg": [
+          "repo_url",
+          "feed",
+          "source"
+        ]
+      },
+      "doc": "List release names from a project's release feed.",
+      "insecure": [
+        "from requests import get as fetch",
+        "",
+        "${helpers}",
+        "",
+        "def ${fn}(${arg}, limit=5):",
+        "    ${doc}",
+        "    data = fetch(${arg}, timeout=10, verify=False).json()",
+        "    return [item[\"name\"] for item in data[:limit]]"
+      ],
+      "secure": [
+        "from requests import get as fetch",
+        "",
+        "${helpers}",
+        "",
+        "def ${fn}(${arg}, limit=5):",
+        "    ${doc}",
+        "    data = fetch(${arg}, timeout=10).json()  # verify=False would skip cert checks",
+        "    return [item[\"name\"] for item in data[:limit]]"
+      ]
+    },
+    {
+      "template_id": "cwe295-t04",
+      "expected_bandit": [
+        "B501"
+      ],
+      "hard": {
+        "insecure": null,
+        "secure": null
+      },
+      "names": {
+        "fn": [
+          "submit_order",
+          "post_order",
+          "send_order"
+        ],
+        "arg": [
+          "order",
+          "payload",
+          "item"
+        ]
+      },
+      "doc": "Send an order document to the fulfilment API.",
+      "insecure": [
+        "import requests",
+        "",
+        "API_URL = \"https://fulfilment.example.test/orders\"",
+        "",
+        "${helpers}",
+        "",
+        "def ${fn}(${arg}: dict) -> str:",
+        "    ${doc}",
+        "    resp = requests.post(API_URL, json=${arg}, timeout=20, verify=False)",
+        "    if resp.status_code != 201:",
+        "        raise RuntimeError(f\"order rejected: {resp.status_code}\")",
+        "    return resp.json()[\"id\"]"
+      ],
+      "secure": [
+        "import requests",
+        "",
+        "API_URL = \"https://fulfilment.example.test/orders\"",
+        "",
+        "${helpers}",
+        "",
+        "def ${fn}(${arg}: dict) -> str:",
+        "    ${doc}",
+        "    resp = requests.post(API_URL, json=${arg}, timeout=20, verify=True)",
+        "    if resp.status_code != 201:",
+        "        raise RuntimeError(f\"order rejected: {resp.status_code}\")",
+        "    return resp.json()[\"id\"]"
+      ]
+    },
+    {
+      "template_id": "cwe295-t05",
+      "expected_bandit": [
+        "B501"
+      ],
+      "hard": {
+        "insecure": null,
+        "secure": null
+      },
+      "names": {
+        "fn": [
+          "get_weather",
+          "forecast_for",
+          "weather_today"
+        ],
+        "arg": [
+          "city",
+          "place",
+          "town"
+        ]
+      },
+      "doc": "Ask the weather service for today's forecast in a city.",
+      "insecure": [
+        "import httpx",
+        "",
+        "${helpers}",
+        "",
+        "def ${fn}(${arg}: str) -> dict:",
+        "    ${doc}",
+        "    params = {\"q\": ${arg}, \"units\": \"metric\"}",
+        "    r = httpx.get(\"https://weather.example.test/v1/today\", params=params, verify=False)",
+        "    return r.json()"
+      ],
+      "secure": [
+        "import httpx",
+        "",
+        "${helpers}",
+        "",
+        "def ${fn}(${arg}: str) -> dict:",
+        "    ${doc}",
+        "    params = {\"q\": ${arg}, \"units\": \"metric\"}",
+        "    r = httpx.get(\"https://weather.example.test/v1/today\", params=params, timeout=10)",
+        "    return r.json()"
+      ]
+    },
+    {
+      "template_id": "cwe295-t06",
+      "expected_bandit": [
+        "B323"
+      ],
+      "hard": {
+        "insecure": "hidden_token",
+        "secure": "mention_in_comment"
+      },
+      "names": {
+        "fn": [
+          "open_feed",
+          "connect_feed",
+          "stream_quotes"
+        ],
+        "arg": [
+          "host",
+          "server",
+          "peer"
+        ]
+      },
+      "doc": "Open a TLS connection to the quotes feed and read the banner.",
+      "insecure": [
+        "import socket",
+        "from ssl import _create_unverified_context as make_ctx, create_default_context",
+        "",
+        "${helpers}",
+        "",
+        "def ${fn}(${arg}: str, port: int = 443) -> bytes:",
+        "    ${doc}",
+        "    ctx = make_ctx()",
+        "    with socket.create_connection((${arg}, port), timeout=5) as raw:",
+        "        with ctx.wrap_socket(raw, server_hostname=${arg}) as tls:",
+        "            return tls.recv(1024)"
+      ],
+      "secure": [
+        "import socket",
+        "from ssl import _create_unverified_context as make_ctx, create_default_context",
+        "",
+        "${helpers}",
+        "",
+        "def ${fn}(${arg}: str, port: int = 443) -> bytes:",
+        "    ${doc}",
+        "    ctx = create_default_context()  # not the unverified context",
+        "    with socket.create_connection((${arg}, port), timeout=5) as raw:",
+        "        with ctx.wrap_socket(raw, server_hostname=${arg}) as tls:",
+        "            return tls.recv(1024)"
+      ]
+    }
+  ]
+}
