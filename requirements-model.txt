@@ -1,3 +1,7 @@
 # CI installs torch from https://download.pytorch.org/whl/cpu (same version, +cpu build)
 torch==2.14.1
 transformers==5.20.2
+# tokenization stack pinned: token boundaries feed pooling, truncation and judge token ids
+huggingface-hub==2.3.0
+safetensors==0.8.0
+tokenizers==0.23.3
