@@ -44,6 +44,8 @@ jobs:
           # CPU-only torch from the official PyTorch index (the one approved non-PyPI source);
           # the pin in requirements-model.txt is then already satisfied by the +cpu build
           pip install "$(grep '^torch==' requirements-model.txt)" --index-url https://download.pytorch.org/whl/cpu
+          # runner's bundled setuptools has known advisories; it is a build tool, not a project dep
+          pip install --upgrade "setuptools>=84.1.0"
           pip install -r requirements.txt -r requirements-model.txt -e ".[dev]"
           python -c "import torch; print('torch', torch.__version__, 'cuda', torch.version.cuda)"
           if pip list | grep -i nvidia; then echo "CUDA packages installed"; exit 1; fi
@@ -57,4 +59,7 @@ jobs:
         run: bandit -r . -x ./data,./tests,./.venv -q
       - name: dependency audit
         # audits the installed environment: both requirement files fully resolved, incl. transitive deps
-        run: pip-audit --skip-editable
+        run: |
+          pip-audit --skip-editable
+          # the +cpu torch build is not on PyPI, so the env audit skips it: audit the pin itself
+          pip-audit --no-deps --disable-pip -r requirements-model.txt
