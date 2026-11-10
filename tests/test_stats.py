@@ -110,14 +110,14 @@ def test_within_group_auroc_skips_single_class_strata():
 def _scores_df():
     return pd.DataFrame({
         "id": ["x-1", "x-2"], "group": ["007", "008"], "stratum": ["CWE-89", "CWE-22"],
-        "label": [0, 1], "score": [0.25, 0.75],
+        "label": [0, 1], "score": [0.25, 0.75], "seed": [0, 0],
     })
 
 
 def test_scores_round_trip(tmp_path):
     path = tmp_path / "scores.csv"
     df = _scores_df()
-    stats.write_scores(df[["score", "label", "stratum", "group", "id"]], path)
+    stats.write_scores(df[["score", "label", "stratum", "group", "id", "seed"]], path)
     pd.testing.assert_frame_equal(stats.read_scores(path), df)
 
 
@@ -127,3 +127,76 @@ def test_write_scores_rejects_wrong_columns(tmp_path, change):
     df = df.drop(columns="stratum") if change == "missing" else df.assign(layer=3)
     with pytest.raises(ValueError):
         stats.write_scores(df, tmp_path / "scores.csv")
+
+
+def test_labels_must_be_zero_or_one():
+    with pytest.raises(ValueError, match="0 or 1"):
+        stats.auroc([0, 2, 1, 1], [0.1, 0.2, 0.3, 0.4])
+    with pytest.raises(ValueError, match="0 or 1"):
+        stats.auroc_ci([0, 2, 1, 1], [0.1, 0.2, 0.3, 0.4], [0, 0, 1, 1], N_BOOT, seed=0)
+
+
+@pytest.mark.parametrize("bad", [np.nan, np.inf])
+def test_scores_must_be_finite(bad):
+    labels, scores = [0, 1, 0, 1], [0.1, bad, 0.3, 0.4]
+    for f in (stats.auroc, stats.auprc):
+        with pytest.raises(ValueError, match="finite"):
+            f(labels, scores)
+    with pytest.raises(ValueError, match="finite"):
+        stats.within_group_auroc(labels, scores, ["a"] * 4)
+
+
+def test_lengths_must_match():
+    with pytest.raises(ValueError, match="length"):
+        stats.auroc([0, 1, 0], [0.1, 0.2])
+    with pytest.raises(ValueError, match="length"):
+        stats.auroc_ci([0, 1, 0, 1], [0.1, 0.2, 0.3, 0.4], [0, 1, 2], N_BOOT, seed=0)
+    labels, a, groups = _data()
+    with pytest.raises(ValueError, match="length"):
+        stats.paired_diff_ci(a, np.append(a, 0.0), labels, groups, N_BOOT, seed=0)
+    with pytest.raises(ValueError, match="length"):
+        stats.gap_ci((labels, a, groups), (labels, a[:-1], groups), N_BOOT, seed=0)
+    with pytest.raises(ValueError, match="length"):
+        stats.within_group_auroc([0, 1], [0.1, 0.2], ["a"])
+
+
+@pytest.mark.parametrize("n_boot", [0, -3])
+def test_n_boot_must_be_positive(n_boot):
+    labels, scores, groups = _data()
+    with pytest.raises(ValueError, match="n_boot"):
+        stats.auroc_ci(labels, scores, groups, n_boot, seed=0)
+
+
+def test_cluster_bootstrap_needs_two_groups():
+    labels, scores, _ = _data()
+    with pytest.raises(ValueError, match="2 groups"):
+        stats.auroc_ci(labels, scores, np.zeros(len(labels)), N_BOOT, seed=0)
+
+
+def test_auprc_rejects_single_class():
+    with pytest.raises(ValueError, match="both classes"):
+        stats.auprc([1, 1, 1], [0.1, 0.2, 0.3])
+
+
+def test_prevalence_is_auprc_chance_level():
+    assert stats.prevalence([0, 0, 0, 1]) == 0.25
+    with pytest.raises(ValueError):
+        stats.prevalence([0, 3])
+
+
+def test_scores_ids_must_be_unique(tmp_path):
+    df = _scores_df().assign(id=["x-1", "x-1"])
+    with pytest.raises(ValueError, match="unique"):
+        stats.write_scores(df, tmp_path / "s.csv")
+
+
+@pytest.mark.parametrize("col,bad", [("label", 2), ("score", np.nan)])
+def test_write_scores_rejects_bad_values(tmp_path, col, bad):
+    df = _scores_df()
+    df.loc[0, col] = bad
+    with pytest.raises(ValueError):
+        stats.write_scores(df, tmp_path / "s.csv")
+
+
+def test_scores_schema_has_seed_column():
+    assert "seed" in stats.SCORES_COLUMNS
