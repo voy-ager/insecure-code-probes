@@ -2,7 +2,8 @@
 
 import pytest
 
-from icp.bandit_label import CWE_MAP, label, scan
+from icp import bandit_label
+from icp.bandit_label import CWE_MAP, MAX_CODE_BYTES, label, scan
 
 # test_id -> insecure snippet that Bandit 1.9.4 flags with that ID
 INSECURE = {
@@ -88,3 +89,30 @@ def test_cwe_327_is_the_single_label_for_327_and_328():
 
 def test_unparseable_code_is_none():
     assert label("def f(:\n") is None
+
+
+@pytest.mark.parametrize("marker", ["# nosec", "# nosec B605", "# nosec B999"])
+def test_nosec_comment_does_not_hide_a_finding(marker):
+    assert label(f"import os\nos.system(cmd)  {marker}\n") == 1
+
+
+def test_lone_surrogate_is_unlabelable():
+    assert label("x = '\ud800'\n") is None
+
+
+def test_leading_bom_is_stripped():
+    assert label("\ufeffimport os\nos.system(cmd)\n") == 1
+
+
+def test_oversized_snippet_is_skipped():
+    assert label("x = 1\n" * (MAX_CODE_BYTES // 6 + 1)) is None
+
+
+def test_non_ascii_snippet_is_labeled():
+    assert label("name = 'caf\u00e9'\nimport os\nos.system(cmd)\n") == 1
+
+
+def test_bandit_timeout_raises_clear_error(monkeypatch):
+    monkeypatch.setattr(bandit_label, "TIMEOUT_S", 0.001)
+    with pytest.raises(RuntimeError, match="timed out"):
+        scan("x = 1\n")

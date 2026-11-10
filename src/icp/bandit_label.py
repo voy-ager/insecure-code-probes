@@ -11,6 +11,9 @@ import tempfile
 from pathlib import Path
 from typing import NamedTuple
 
+MAX_CODE_BYTES = 200_000  # larger snippets are skipped (None): Bandit takes ~30 s per MB
+TIMEOUT_S = 60
+
 # Canonical CWE per Bandit test ID; CWE-327 covers 327/328. Informational IDs (B403, B404,
 # B603, ...) are unmapped. B202 (tarfile, CWE-22) is deliberately unmapped: CWE-22 is
 # pairs-only and must not enter the transfer labels.
@@ -37,12 +40,16 @@ def scan(code: str) -> list[Finding]:
     with tempfile.TemporaryDirectory() as tmp:
         path = Path(tmp) / "snippet.py"
         path.write_text(code, encoding="utf-8")
-        proc = subprocess.run(  # nosec B603 - no shell; the snippet is a file argument, never run
-            [sys.executable, "-m", "bandit", "-f", "json", "-q", str(path)],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
+        try:
+            proc = subprocess.run(  # nosec B603 - no shell; the snippet is a file argument, never run
+                [sys.executable, "-m", "bandit", "--ignore-nosec", "-f", "json", "-q", str(path)],
+                capture_output=True,
+                encoding="utf-8",
+                check=False,
+                timeout=TIMEOUT_S,
+            )
+        except subprocess.TimeoutExpired:
+            raise RuntimeError(f"bandit timed out after {TIMEOUT_S}s") from None
     # exit 0 = clean, 1 = findings; anything else (or unparsable output) is a real failure
     if proc.returncode not in (0, 1):
         raise RuntimeError(f"bandit failed ({proc.returncode}): {proc.stderr.strip()}")
@@ -59,10 +66,15 @@ def scan(code: str) -> list[Finding]:
 
 
 def label(code: str) -> int | None:
-    """None if the code does not parse; 1 if any mapped finding (any confidence, any
+    """None if the code does not parse, cannot be encoded as UTF-8 (lone surrogates) or exceeds
+    MAX_CODE_BYTES; a leading BOM is stripped. Bandit runs with --ignore-nosec, so `# nosec`
+    in a generation cannot hide a finding. 1 if any mapped finding (any confidence, any
     severity: B608 is LOW confidence outside execute(...), B105-B107 are severity LOW)."""
+    code = code.removeprefix("﻿")
     try:
+        if len(code.encode("utf-8")) > MAX_CODE_BYTES:
+            return None
         ast.parse(code)
-    except (SyntaxError, ValueError):
+    except (SyntaxError, ValueError):  # UnicodeEncodeError is a ValueError
         return None
     return int(any(f.cwe for f in scan(code)))
