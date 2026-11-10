@@ -15,8 +15,20 @@ HARD = {"mention_in_comment", "hidden_token"}  # or null
 
 
 def load_pairs(path: str | Path) -> pd.DataFrame:
-    with open(path, encoding="utf-8") as f:
-        df = pd.DataFrame([json.loads(line) for line in f if line.strip()])
+    rows = []
+    with open(path, "rb") as f:
+        for lineno, raw in enumerate(f, 1):
+            try:
+                text = raw.decode("utf-8")
+                if not text.strip():
+                    continue
+                row = json.loads(text)
+            except ValueError as e:  # UnicodeDecodeError and JSONDecodeError both subclass it
+                raise ValueError(f"{path}:{lineno}: invalid JSON or UTF-8: {e}") from e
+            if not isinstance(row, dict):
+                raise ValueError(f"{path}:{lineno}: line is not a JSON object")  # noqa: TRY004
+            rows.append(row)
+    df = pd.DataFrame(rows)
     validate(df)
     return df
 
@@ -28,6 +40,8 @@ def validate(df: pd.DataFrame) -> None:
         ids = sorted(map(str, bad.unique()))[:5]
         raise ValueError(f"{rule}: {ids}")
 
+    if df.empty:
+        raise ValueError("no rows")
     missing = [c for c in REQUIRED if c not in df.columns]
     if missing:
         raise ValueError(f"missing fields: {missing}")
@@ -37,9 +51,13 @@ def validate(df: pd.DataFrame) -> None:
         fail("null or missing required field", df.loc[rows, "id"])
     if df["id"].duplicated().any():
         fail("duplicate id", df.loc[df["id"].duplicated(), "id"])
-    bad = ~df["label"].isin([0, 1])
+    # exact int 0/1: bool and float (True, 1.0) are rejected
+    bad = ~df["label"].map(lambda v: isinstance(v, (int, np.integer)) and not isinstance(v, bool) and v in (0, 1))
     if bad.any():
-        fail("label not in {0, 1}", df.loc[bad, "id"])
+        fail("label not int 0 or 1", df.loc[bad, "id"])
+    bad = ~df["expected_bandit"].map(lambda v: isinstance(v, list))
+    if bad.any():
+        fail("expected_bandit not a list", df.loc[bad, "id"])
     bad = ~df["cwe"].isin(CWES)
     if bad.any():
         fail("cwe not in canonical set", df.loc[bad, "id"])
@@ -55,6 +73,9 @@ def validate(df: pd.DataFrame) -> None:
     bad = (g["template_id"].nunique() != 1) | (g["cwe"].nunique() != 1)
     if bad.any():
         fail("pair members must share template_id and cwe", bad[bad].index.to_series())
+    bad = df.groupby("template_id")["cwe"].nunique() != 1  # else LOCO leaks the template
+    if bad.any():
+        fail("template_id must map to exactly one cwe", bad[bad].index.to_series())
 
 
 def grouped_folds(df: pd.DataFrame, n_splits: int, seed: int) -> list[tuple[np.ndarray, np.ndarray]]:

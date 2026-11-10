@@ -68,10 +68,42 @@ def _break_pair_template(d):
     return d
 
 
+def _break_label_bool(d):
+    d["label"] = d["label"].astype(object)
+    d.loc[1, "label"] = True
+    return d
+
+
+def _break_label_float(d):
+    d["label"] = d["label"].astype(float)
+    return d
+
+
+def _break_expected_bandit(d):
+    d["expected_bandit"] = d["expected_bandit"].astype(object)
+    d.at[0, "expected_bandit"] = "B101"
+    return d
+
+
+def _break_template_two_cwes(d):
+    # relabel a whole pair so the pair rule passes; the template now spans two CWEs
+    d.loc[d["pair_id"] == d.loc[0, "pair_id"], "cwe"] = "CWE-78"
+    return d
+
+
+def _break_empty(d):
+    return d.iloc[0:0]
+
+
 @pytest.mark.parametrize("breaker, message", [
+    (_break_label_bool, "label not int"),
+    (_break_label_float, "label not int"),
+    (_break_expected_bandit, "expected_bandit not a list"),
+    (_break_template_two_cwes, "exactly one cwe"),
+    (_break_empty, "no rows"),
     (_break_missing_field, "missing fields"),
     (_break_null_field, "null or missing required field"),
-    (_break_label, "label not in"),
+    (_break_label, "label not int"),
     (_break_duplicate_id, "duplicate id"),
     (_break_pair_two_insecure, "exactly one secure"),
     (_break_pair_three_rows, "exactly one secure"),
@@ -120,3 +152,16 @@ def test_shuffle_within_pairs(df):
     assert out["label"].equals(shuffle_within_pairs(df.iloc[::-1], seed=0)["label"].sort_index())
     assert not out["label"].equals(df["label"])
     assert df["label"].equals(load_pairs(FIXTURE)["label"])  # input not mutated
+
+
+@pytest.mark.parametrize("content, message", [
+    (b'{"id": "a"}\nnot json\n', r"bad\.jsonl:2: invalid JSON"),
+    (b'\n[1, 2]\n', r"bad\.jsonl:2: line is not a JSON object"),
+    (b'{"id": "\xff"}\n', r"bad\.jsonl:1: invalid JSON or UTF-8"),
+    (b"\n\n", "no rows"),
+])
+def test_load_pairs_errors_name_file_and_line(tmp_path, content, message):
+    p = tmp_path / "bad.jsonl"
+    p.write_bytes(content)
+    with pytest.raises(ValueError, match=message):
+        load_pairs(p)
