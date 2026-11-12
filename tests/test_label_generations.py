@@ -79,3 +79,10 @@ def test_pii_flags_clean(text):
 def test_pii_row_flagged_in_raw_output_only():
     row = {**ROWS[1], "raw_output": f"mail {EMAIL}"}
     assert label_rows([row])[0]["pii_flags"] == ["email"]
+
+
+def test_labeled_schema_for_judge_and_probe_joins():
+    for g, r in zip(ROWS, label_rows(ROWS), strict=True):
+        assert {"id", "prompt_id", "cwe_area", "code", "label"} <= set(r)
+        assert (r["id"], r["prompt_id"], r["cwe_area"], r["code"]) == (g["id"], g["prompt_id"], g["cwe_area"], g["code"])
+        assert r["label"] in (0, 1, None)
