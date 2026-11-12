@@ -120,7 +120,7 @@ def test_run_probes_end_to_end(tmp_path, monkeypatch):
     (acts / "transfer_meta.json").write_text(json.dumps({"ids": gen["id"].tolist()}), encoding="utf-8")
     lex = pd.DataFrame({"id": df["id"], "group": df["template_id"], "stratum": df["cwe"], "label": df["label"],
                         "score": np.random.default_rng(3).random(len(df)), "seed": 0})
-    write_scores(lex, res / "scores_lexical_indist_cv.csv")
+    write_scores(lex, res / "scores_lexical_pairs.csv")
     cfg = {**CFG, "extract": {"pooling": ["mean"]},
            "paths": {"pairs": str(tmp_path / "pairs.jsonl"), "prompts": str(tmp_path / "prompts.jsonl"),
                       "activations": str(acts), "generations": str(gens),
@@ -138,20 +138,23 @@ def test_run_probes_end_to_end(tmp_path, monkeypatch):
         monkeypatch.setattr(mod, name, spy)
     mod.run(cfg)
 
-    # nested calls: 8-CWE H1, shuffled, 7-CWE; transfer calls: headline, then secondary 8-CWE
-    assert "CWE-22" not in seen["nested"][2] and "CWE-22" not in seen["transfer"][0]
+    # nested calls: 8-CWE H1, then 7-CWE; transfer calls: headline, then secondary 8-CWE
+    assert "CWE-22" not in seen["nested"][1] and "CWE-22" not in seen["transfer"][0]
     assert "CWE-22" in seen["transfer"][1] and "CWE-22" in seen["nested"][0]
 
     out = pd.read_csv(res / "probe_layers.csv")
     assert out[["n_pos", "n_neg", "n_redraw", "seed"]].notna().all().all()
     head = out[(out.method == "probe") & (out.eval_set == "transfer") & (out.note == "selected")]
-    assert len(head) == 1 and head.layer.iloc[0] == "4" and head.auroc.iloc[0] > 0.9
+    assert len(head) == 1 and head.layer.iloc[0] == 4 and head.auroc.iloc[0] > 0.9
+    assert json.loads((res / "selected_layers.json").read_text())["transfer"] == 4
+    assert out[out.method.str.startswith("probe_nested") & (out.eval_set == "pairs")].layer.isna().all()
+    assert len(list(res.glob("scores_probe_nested_loco_CWE-*.csv"))) == len(CWES)
     assert (out[out.eval_set.str.endswith("CWE-22")].note == "pairs_only").all()
     assert set(out.method) >= {"probe", "probe_nested", "probe_nested_7cwe", "probe_layer0", "probe_shuffled",
                                "probe_8cwe", "topic_prior", "prompt_risky_prior"}
     assert {"transfer_risky", "transfer_safe"} <= set(out.eval_set)
-    shuffled = out[out.method == "probe_shuffled"].auroc.iloc[0]
-    assert shuffled < 0.75  # within-pair shuffle removes the planted signal
+    shuffled = out[(out.method == "probe_shuffled") & (out.eval_set == "pairs")]
+    assert len(shuffled) == N_HIDDEN and (shuffled.auroc < 0.75).all()  # within-pair shuffle removes the planted signal
     for f in res.glob("scores_*.csv"):
         assert list(pd.read_csv(f).columns) == SCORES_COLUMNS
     assert len(pd.read_csv(res / "paired_diffs.csv")) == 1
