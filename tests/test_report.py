@@ -62,12 +62,17 @@ def test_loco_pool_ignores_last_token_files(tmp_path):
     assert _row(summary_table(res, N_BOOT, 0), "probe (nested")[2] == before
 
 
-def test_per_cwe_marks_cwe22():
+def test_per_cwe_slices_pairs_files_by_stratum():
     md = per_cwe_table(FIXTURE, N_BOOT, 0)
     assert "pairs only, not in transfer" in _row(md, "CWE-22")[-1]
-    assert _row(md, "CWE-22")[1] != "n/a" and _row(md, "CWE-22")[2] != "n/a"  # pairs_<cwe> and loco_<cwe> files
-    assert _row(md, "CWE-295")[1] != "n/a"
-    assert _row(md, "CWE-295")[2] == "n/a"  # no LOCO scores: n/a, not a crash
+    # in-dist AUROC per CWE matches icp.stats on the stratum slice, for the probe and the length baseline
+    for col, name in ((1, "scores_probe_nested_pairs.csv"), (2, "scores_length_pairs.csv")):
+        sc = stats.read_scores(FIXTURE / name)
+        sc = sc[sc["stratum"] == "CWE-94"]
+        ci = stats.auroc_ci(sc["label"], sc["score"], sc["group"], N_BOOT, 0)
+        assert _row(md, "CWE-94")[col] == f"{ci.estimate:.3f} [{ci.lo:.3f}, {ci.hi:.3f}]"
+    assert _row(md, "CWE-22")[3] != "n/a"  # has LOCO scores in the fixture
+    assert _row(md, "CWE-295")[3] == "n/a"  # no LOCO scores: n/a, not a crash
     assert "scores_probe_nested_loco_CWE-295.csv missing" in md
 
 

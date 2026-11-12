@@ -8,7 +8,7 @@ Reads `results/<model>/` (who writes what):
   ({"pairs": {"low_mass": bool, "n_truncated": int}, "transfer": {...}}): the judge PR (#12).
 - `scores_topic_prior_transfer.csv`, `scores_prompt_risky_prior_transfer.csv`: #9.
 - Score files are `scores_<method>_<eval_set>[_last].csv` with eval_set in {pairs, transfer,
-  loco_<cwe>}; per-CWE in-dist files are `scores_probe_nested_pairs_<cwe>.csv`.
+  loco_<cwe>}; per-CWE in-dist AUROC slices the pairs files by `stratum` (= CWE).
 Baselines are never read from probe_layers.csv: their AUROC, CI and AUPRC are computed here from
 the score files with icp.stats. Only mean pooling is reported (`_last` files are ignored).
 Missing optional inputs give an `n/a` cell and a line under "Notes"; a malformed scores file
@@ -212,25 +212,39 @@ def summary_table(results: str | Path, n_boot: int, seed: int) -> str:
 
 
 def per_cwe_table(results: str | Path, n_boot: int, seed: int) -> str:
+    """Per-CWE in-dist AUROC (probe and length-only, sliced from the pairs score files by
+    `stratum` = CWE) and per-CWE LOCO AUROC (scores_probe_nested_loco_<cwe>.csv)."""
     results = Path(results)
     notes: set = set()
-    cwes = {f.stem.rsplit("_", 1)[-1] for f in _files(results, "probe_nested", "pairs_*")}
-    cwes |= {f.stem.split("_loco_", 1)[1] for f in _files(results, "probe_nested", "loco_*")}
-    lines = ["| CWE | in-dist AUROC [CI] | LOCO AUROC [CI] | note |", "|---|---|---|---|"]
-    if not cwes:
-        notes.add("no scores_probe_nested_pairs_<cwe>.csv or scores_probe_nested_loco_<cwe>.csv: no per-CWE rows")
-
-    def cell(eval_set: str, cwe: str, what: str) -> str:
-        sc = _scores(results, "probe_nested", eval_set)
+    probe, length = _scores(results, "probe_nested", "pairs"), _scores(results, "length", "pairs")
+    for name, sc in (("scores_probe_nested_pairs.csv", probe), ("scores_length_pairs.csv", length)):
         if sc is None:
-            notes.add(f"{cwe}: scores_probe_nested_{eval_set}.csv missing ({what})")
+            notes.add(f"{name} missing: in-dist column is n/a")
+    cwes = set() if probe is None else set(probe["stratum"])
+    cwes |= {f.stem.split("_loco_", 1)[1] for f in _files(results, "probe_nested", "loco_*")}
+    lines = ["| CWE | probe in-dist AUROC [CI] | length-only in-dist AUROC [CI] | probe LOCO AUROC [CI] | note |",
+             "|---|---|---|---|---|"]
+    if not cwes:
+        notes.add("no per-CWE rows: scores_probe_nested_pairs.csv and scores_probe_nested_loco_<cwe>.csv missing")
+
+    def cell(sc, cwe: str, what: str) -> str:
+        if sc is None:
+            return NA
+        sc = sc[sc["stratum"] == cwe]
+        if sc.empty:
+            notes.add(f"{cwe}: no {what} rows")
             return NA
         return _safe(lambda: _ci_cell(stats.auroc_ci(sc["label"], sc["score"], sc["group"], n_boot, seed),
                                       n_boot, f"{cwe} {what}", notes), f"{cwe} {what}", notes)
 
     for cwe in sorted(cwes):
+        loco = _scores(results, "probe_nested", f"loco_{cwe}")
+        if loco is None:
+            notes.add(f"{cwe}: scores_probe_nested_loco_{cwe}.csv missing (LOCO)")
         note = "pairs only, not in transfer" if cwe == "CWE-22" else ""
-        lines.append(f"| {cwe} | {cell(f'pairs_{cwe}', cwe, 'in-dist')} | {cell(f'loco_{cwe}', cwe, 'LOCO')} | {note} |")
+        cells = [cwe, cell(probe, cwe, "probe in-dist"), cell(length, cwe, "length in-dist"),
+                 cell(loco, cwe, "LOCO"), note]
+        lines.append("| " + " | ".join(cells) + " |")
     lines += ["", "Notes:"] + [f"- {n}" for n in sorted(notes)]
     return "\n".join(lines) + "\n"
 
