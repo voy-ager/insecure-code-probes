@@ -82,6 +82,8 @@ def test_topic_prior_and_within_area():
     gen = pd.DataFrame({"prompt_id": ["a1", "a2", "b1", "b2"] * 2, "cwe_area": ["A", "A", "B", "B"] * 2,
                         "label": [1, 1, 0, 0] * 2})
     assert auroc(gen["label"], probe.topic_prior(gen)) == 1.0
+    gen["natural"] = ["risky", "risky", "safe", "safe"] * 2
+    assert auroc(gen["label"], probe.topic_prior(gen, by="natural")) == 1.0
     # areas A and B are single-class, so only C counts
     strata = ["A", "A", "B", "B", "C", "C"]
     _, n_used = within_group_auroc([1, 1, 0, 0, 1, 0], [0.9, 0.8, 0.1, 0.2, 0.7, 0.3], strata)
@@ -111,13 +113,17 @@ def test_run_probes_end_to_end(tmp_path, monkeypatch):
                         "cwe_area": [f"A{i // 16}" for i in range(48)], "label": [0, 1] * 24})
     with open(gens / "labeled.jsonl", "w", encoding="utf-8") as f:
         f.writelines(json.dumps(r) + "\n" for r in gen.to_dict("records") + [{"id": "bad", "prompt_id": "p0", "cwe_area": "A0", "label": None}])
+    with open(tmp_path / "prompts.jsonl", "w", encoding="utf-8") as f:
+        f.writelines(json.dumps({"prompt_id": f"p{i}", "natural": ["risky", "safe"][i % 2]}) + "\n"
+                     for i in range(12))
     np.save(acts / "transfer_mean.npy", make_x(gen, signal_layer=4))
     (acts / "transfer_meta.json").write_text(json.dumps({"ids": gen["id"].tolist()}), encoding="utf-8")
     lex = pd.DataFrame({"id": df["id"], "group": df["template_id"], "stratum": df["cwe"], "label": df["label"],
                         "score": np.random.default_rng(3).random(len(df)), "seed": 0})
     write_scores(lex, res / "scores_lexical_indist_cv.csv")
     cfg = {**CFG, "extract": {"pooling": ["mean"]},
-           "paths": {"pairs": str(tmp_path / "pairs.jsonl"), "activations": str(acts), "generations": str(gens),
+           "paths": {"pairs": str(tmp_path / "pairs.jsonl"), "prompts": str(tmp_path / "prompts.jsonl"),
+                      "activations": str(acts), "generations": str(gens),
                      "results": str(res)}}
 
     mod = _load_script()
@@ -142,7 +148,8 @@ def test_run_probes_end_to_end(tmp_path, monkeypatch):
     assert len(head) == 1 and head.layer.iloc[0] == "4" and head.auroc.iloc[0] > 0.9
     assert (out[out.eval_set.str.endswith("CWE-22")].note == "pairs_only").all()
     assert set(out.method) >= {"probe", "probe_nested", "probe_nested_7cwe", "probe_layer0", "probe_shuffled",
-                               "probe_8cwe", "topic_prior"}
+                               "probe_8cwe", "topic_prior", "prompt_risky_prior"}
+    assert {"transfer_risky", "transfer_safe"} <= set(out.eval_set)
     shuffled = out[out.method == "probe_shuffled"].auroc.iloc[0]
     assert shuffled < 0.75  # within-pair shuffle removes the planted signal
     for f in res.glob("scores_*.csv"):

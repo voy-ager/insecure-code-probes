@@ -150,6 +150,11 @@ def run(cfg: dict) -> None:
         with open(gen_path, encoding="utf-8") as f:
             gen = pd.DataFrame([r for r in map(json.loads, filter(str.strip, f)) if r["label"] is not None])
         gen, Xg = _aligned(gen, act_dir, "transfer", pool)
+        with open(paths["prompts"], encoding="utf-8") as f:
+            natural = {r["prompt_id"]: r["natural"] for r in map(json.loads, filter(str.strip, f))}
+        gen["natural"] = gen["prompt_id"].map(natural)
+        if gen["natural"].isna().any():
+            raise ValueError(f"generations with a prompt_id that has no `natural` field in {paths['prompts']}")
 
         def transfer_row(method, sc, layer, note="", _gen=gen, _pool=pool):
             s = _scores(_gen, "prompt_id", "cwe_area", sc, seed)
@@ -163,7 +168,14 @@ def run(cfg: dict) -> None:
         if (train["cwe"] == PAIRS_ONLY).any():
             raise ValueError("headline transfer training rows must not contain CWE-22")
         sc, layer = transfer_scores(X[sub], train, Xg, cfg, seed)
-        save("probe", "transfer", transfer_row("probe", sc, layer, "selected"))
+        head = transfer_row("probe", sc, layer, "selected")
+        save("probe", "transfer", head)
+        for nat in ("risky", "safe"):  # does the probe rank within natural-risky / natural-safe prompts?
+            g = head[(gen["natural"] == nat).to_numpy()]
+            if g["label"].nunique() == 2 and g["group"].nunique() > 1:
+                rows.append(_row("probe", f"transfer_{nat}", pool, layer, g, n_boot, seed, "selected"))
+            else:
+                log.warning("transfer_%s: needs both classes and 2+ prompts; row skipped", nat)
         for at in range(X.shape[1]):  # descriptive per-layer transfer curve
             if at != layer:
                 transfer_row("probe", fit_score(X[sub, at], train["label"].to_numpy(), Xg[:, at], cfg, seed), at)
@@ -172,6 +184,8 @@ def run(cfg: dict) -> None:
         sc, layer8 = transfer_scores(X, df, Xg, cfg, seed)
         save("probe_8cwe", "transfer", transfer_row("probe_8cwe", sc, layer8, "secondary"))
         save("topic_prior", "transfer", transfer_row("topic_prior", topic_prior(gen), ""))
+        s = transfer_row("prompt_risky_prior", topic_prior(gen, by="natural"), "")
+        save("prompt_risky_prior", "transfer", s)
 
     pd.DataFrame(rows, columns=LAYER_COLUMNS).to_csv(res / "probe_layers.csv", index=False)
     if diffs:

@@ -81,13 +81,14 @@ def train_rows(df: pd.DataFrame, cwes) -> np.ndarray:
     return np.flatnonzero(df["cwe"].isin(list(cwes)).to_numpy())
 
 
-def topic_prior(gen: pd.DataFrame) -> np.ndarray:
-    """Transfer baseline: positive rate of the row's cwe_area over the OTHER prompts
-    (leave-one-prompt-out); global rate of the other prompts if the area has no other prompt."""
+def topic_prior(gen: pd.DataFrame, by: str = "cwe_area") -> np.ndarray:
+    """Transfer baseline: positive rate of the row's `by` value (cwe_area, or `natural` for
+    prompt_risky_prior) over the OTHER prompts (leave-one-prompt-out); global rate of the
+    other prompts if no other prompt shares the value."""
     out = np.empty(len(gen))
     labels = gen["label"].to_numpy()
-    for i, (area, prompt) in enumerate(zip(gen["cwe_area"], gen["prompt_id"])):
+    for i, (key, prompt) in enumerate(zip(gen[by], gen["prompt_id"])):
         others = (gen["prompt_id"] != prompt).to_numpy()
-        same = others & (gen["cwe_area"] == area).to_numpy()
+        same = others & (gen[by] == key).to_numpy()
         out[i] = labels[same].mean() if same.any() else labels[others].mean()
     return out
