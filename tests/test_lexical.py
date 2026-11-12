@@ -1,8 +1,20 @@
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 import pytest
 
-from icp import dataset, lexical, stats
+from icp import dataset, lexical, load_config, stats
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+class StubTok:
+    """Whitespace tokenizer with the HF call shape; no downloads."""
+
+    def __call__(self, codes, add_special_tokens):
+        assert add_special_tokens is False
+        return {"input_ids": [list(range(len(c.split()))) for c in codes]}
 
 
 def toy(codes, labels):
@@ -15,7 +27,7 @@ def toy(codes, labels):
 
 def run(df, method, tmp_path):
     folds = dataset.grouped_folds(df, 4, 0)
-    out = lexical.cv_scores(df, folds, method)
+    out = lexical.cv_scores(df, folds, method, tok=StubTok())
     assert sorted(out["id"]) == sorted(df["id"])  # every row scored exactly once, out of fold
     assert list(out.columns) == stats.SCORES_COLUMNS
     stats.write_scores(out, tmp_path / "s.csv")  # unique ids, finite scores, exact schema
@@ -58,10 +70,29 @@ def test_clear_errors():
     df = toy(["a b", "c d", "a b", "c d"], [1, 0, 1, 0])
     with pytest.raises(ValueError, match="unknown method"):
         lexical.fit_score(df, df, "lexcial")
+    with pytest.raises(ValueError, match="needs a Qwen tokenizer"):
+        lexical.fit_score(df, df, "length")
     with pytest.raises(ValueError, match="no folds"):
         lexical.cv_scores(df, [], "lexical")
     with pytest.raises(ValueError, match="both classes"):
-        lexical.fit_score(df[df["label"] == 1], df, "length")
+        lexical.fit_score(df[df["label"] == 1], df, "length", tok=StubTok())
     empty = toy(["", " ", "\n", ""], [1, 0, 1, 0])
     with pytest.raises(ValueError, match="no code tokens"):
         lexical.fit_score(empty, df, "lexical")
+
+
+def test_length_counts_tokenizer_tokens_not_stdlib_tokens():
+    # same stdlib tokens and lines, different whitespace-token counts -> features follow the tokenizer
+    f = lexical._length_features(["a+b", "a + b"], StubTok())
+    assert f.tolist() == [[1.0, 1.0], [3.0, 1.0]]
+
+
+@pytest.mark.slow
+def test_real_tokenizer_length_separates_length_only_pair():
+    tok = lexical.load_tokenizer(load_config(ROOT / "configs" / "pilot_0.5b.toml"))
+    short = [f"x{i} = {i}\n" for i in range(40)]
+    longer = [f"x{i} = {i}\ny{i} = {i} + {i}\n" for i in range(40)]  # same shape, only longer
+    df = toy(short + longer, [0] * 40 + [1] * 40)
+    df["template_id"] = [f"t{i % 40}" for i in range(80)]
+    out = lexical.cv_scores(df, dataset.grouped_folds(df, 4, 0), "length", tok=tok)
+    assert stats.auroc(out["label"], out["score"]) > 0.95
