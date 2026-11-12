@@ -9,3 +9,4 @@ data/activations/
 *.safetensors
 *.npy
 *.egg-info/
+*.local.jsonl
