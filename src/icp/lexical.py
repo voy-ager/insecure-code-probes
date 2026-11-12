@@ -39,8 +39,8 @@ def tokens(code: str) -> list[str]:
 
 
 def load_tokenizer(cfg: dict):
-    """Tokenizer only (no weights) at the pinned revision; safetensors-era flags as in icp.activations."""
-    from transformers import AutoTokenizer  # lazy: `lexical` alone needs no transformers
+    """Tokenizer only (no weights) at the pinned revision. Lazy import: `lexical` alone needs no transformers."""
+    from transformers import AutoTokenizer
 
     m = cfg["model"]
     return AutoTokenizer.from_pretrained(m["id"], revision=m["revision"], trust_remote_code=False)
