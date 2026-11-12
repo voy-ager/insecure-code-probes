@@ -2,6 +2,14 @@
 
 Both use folds from `icp.dataset` (never their own split) and return `icp.stats.SCORES_COLUMNS`
 frames. Input frames need: id, template_id (-> group), cwe (-> stratum), label, code.
+
+Transfer (generated code) frames carry prompt_id and cwe_area instead: the caller maps
+prompt_id -> template_id (bootstrap group) and cwe_area -> cwe (stratum) before calling.
+The caller writes `scores_lexical_<eval_set>.csv` and `scores_length_<eval_set>.csv`
+(eval_set in pairs, transfer, loco_<cwe>) with `icp.stats.write_scores`.
+Methods are `lexical` and `length`; the caller appends `_7cwe` etc. to the scores-file method name
+where the 7-CWE run must be kept apart (see the `icp.stats` docstring).
+`seed` is recorded in the output but has no effect: lbfgs logistic regression is deterministic.
 """
 
 import io
@@ -42,7 +50,16 @@ def _ngrams(toks: list[str]) -> list[str]:
     return toks + [f"{a} {b}" for a, b in itertools.pairwise(toks)]
 
 
+METHODS = ("lexical", "length")
+
+
 def _fit_predict(method: str, train: pd.DataFrame, test: pd.DataFrame, seed: int) -> np.ndarray:
+    if method not in METHODS:
+        raise ValueError(f"unknown method {method!r}; expected one of {METHODS}")
+    if train["label"].nunique() < 2:
+        raise ValueError("train fold needs both classes (0 and 1)")
+    if not any(tokens(c) for c in train["code"]):
+        raise ValueError("train fold has no code tokens (all code empty)")
     prep = (lambda d: d["code"].tolist()) if method == "lexical" else (lambda d: _length_features(d["code"]))
     m = _model(method, seed).fit(prep(train), train["label"])
     return m.decision_function(prep(test))
@@ -63,5 +80,7 @@ def fit_score(train: pd.DataFrame, test: pd.DataFrame, method: str, seed: int = 
 
 def cv_scores(df: pd.DataFrame, folds: list, method: str, seed: int = 0) -> pd.DataFrame:
     """Out-of-fold scores; `folds` from `icp.dataset.grouped_folds` as (train, test) positions."""
+    if not folds:
+        raise ValueError("no folds given")
     parts = [fit_score(df.iloc[tr], df.iloc[te], method, seed) for tr, te in folds]
     return pd.concat(parts, ignore_index=True)
