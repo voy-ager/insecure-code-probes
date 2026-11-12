@@ -130,7 +130,7 @@
         "    ${doc}",
         "    if not ${arg}:",
         "        raise ValueError(\"empty payload\")",
-        "    return h(salt + ${arg}).hexdigest()"
+        "    return h(salt + ${arg}).hexdigest()  # digest helper from v1"
       ],
       "secure": [
         "from hashlib import md5 as h, sha256",
@@ -141,7 +141,7 @@
         "    ${doc}",
         "    if not ${arg}:",
         "        raise ValueError(\"empty payload\")",
-        "    return sha256(salt + ${arg}).hexdigest()  # md5 is broken for integrity"
+        "    return sha256(salt + ${arg}).hexdigest()  # md5 was used in v1"
       ]
     },
     {
@@ -281,7 +281,7 @@
         "",
         "def ${fn}(${arg}: str, salt: bytes) -> str:",
         "    ${doc}",
-        "    h = hashlib.new(\"md5\", salt)",
+        "    h = hashlib.new(\"md5\", salt)  # digest call from v1",
         "    h.update(${arg}.encode())",
         "    return salt.hex() + \"$$\" + h.hexdigest()"
       ],
@@ -292,7 +292,7 @@
         "",
         "def ${fn}(${arg}: str, salt: bytes) -> str:",
         "    ${doc}",
-        "    h = hashlib.new(\"sha256\", salt)  # md5 must not be used here",
+        "    h = hashlib.new(\"sha256\", salt)  # md5 was used in v1",
         "    h.update(${arg}.encode())",
         "    return salt.hex() + \"$$\" + h.hexdigest()"
       ]

@@ -118,7 +118,7 @@
         "",
         "def ${fn}(cur, ${arg}):",
         "    ${doc}",
-        "    q = \"SELECT title, price FROM products WHERE category = '{}' ORDER BY price\".format(${arg})",
+        "    q = \"SELECT title, price FROM products WHERE category = '{}' ORDER BY price\".format(${arg})  # category query from v1",
         "    rows = cur.execute(q).fetchall()",
         "    return [(title, float(price)) for title, price in rows]"
       ],
@@ -127,7 +127,7 @@
         "",
         "def ${fn}(cur, ${arg}):",
         "    ${doc}",
-        "    q = \"SELECT title, price FROM products WHERE category = ? ORDER BY price\"  # no .format() in SQL",
+        "    q = \"SELECT title, price FROM products WHERE category = ? ORDER BY price\"  # .format() was used in v1",
         "    rows = cur.execute(q, (${arg},)).fetchall()",
         "    return [(title, float(price)) for title, price in rows]"
       ]
@@ -254,7 +254,7 @@
         "def ${fn}(conn: sqlite3.Connection, ${arg}: str, limit: int = 20):",
         "    ${doc}",
         "    pattern = \"%\" + ${arg}.strip() + \"%\"",
-        "    text = \"SELECT id, body FROM notes WHERE body LIKE '\" + pattern + \"' LIMIT 20\"",
+        "    text = \"SELECT id, body FROM notes WHERE body LIKE '\" + pattern + \"' LIMIT 20\"  # notes search from v1",
         "    return conn.execute(text).fetchall()[:limit]"
       ],
       "secure": [
@@ -265,7 +265,7 @@
         "def ${fn}(conn: sqlite3.Connection, ${arg}: str, limit: int = 20):",
         "    ${doc}",
         "    pattern = \"%\" + ${arg}.strip() + \"%\"",
-        "    text = \"SELECT id, body FROM notes WHERE body LIKE ? LIMIT 20\"  # concatenating here = SQL injection",
+        "    text = \"SELECT id, body FROM notes WHERE body LIKE ? LIMIT 20\"  # + concatenation was v1",
         "    return conn.execute(text, (pattern,)).fetchall()[:limit]"
       ]
     }

@@ -132,7 +132,7 @@
         "def ${fn}(${arg}: str) -> bytes:",
         "    ${doc}",
         "    target = (MEDIA / ${arg}).resolve()",
-        "    if not str(target).startswith(str(MEDIA)):",
+        "    if not str(target).startswith(str(MEDIA)):  # media dir as in v1",
         "        raise FileNotFoundError(${arg})",
         "    return target.read_bytes()"
       ],
@@ -146,7 +146,7 @@
         "def ${fn}(${arg}: str) -> bytes:",
         "    ${doc}",
         "    target = (MEDIA / ${arg}).resolve()",
-        "    if not target.is_relative_to(MEDIA):  # blocks ../ in the name",
+        "    if not target.is_relative_to(MEDIA):  # ../ names seen in v1",
         "        raise FileNotFoundError(${arg})",
         "    return target.read_bytes()"
       ]
@@ -291,7 +291,7 @@
         "    ${doc}",
         "    clean = ${arg}.replace(\"../\", \"\")",
         "    path = (TEMPLATES / clean).resolve()",
-        "    if not path.is_file() or path.name.startswith(\".\"):",
+        "    if not path.is_file() or path.name.startswith(\".\"):  # names as in old logs",
         "        raise LookupError(f\"no such template: {clean}\")",
         "    return path.read_text(encoding=\"utf-8\")"
       ],
@@ -306,7 +306,7 @@
         "    ${doc}",
         "    clean = ${arg}.replace(\"../\", \"\")",
         "    path = (TEMPLATES / clean).resolve()",
-        "    if not path.is_file() or not path.is_relative_to(TEMPLATES):  # replace() alone misses ....//",
+        "    if not path.is_file() or not path.is_relative_to(TEMPLATES):  # ....// seen in old logs",
         "        raise LookupError(f\"no such template: {clean}\")",
         "    return path.read_text(encoding=\"utf-8\")"
       ]

@@ -167,7 +167,7 @@
         "    ${doc}",
         "    ${arg}[\"relay\"] = os.environ.get(\"MAIL_RELAY\", \"localhost\")",
         "    ${arg}[\"user\"] = \"notifier\"",
-        "    ${arg}[\"pwd\"] = \"not-real\"",
+        "    ${arg}[\"pwd\"] = \"not-real\"  # relay setting from v1",
         "    return ${arg}"
       ],
       "secure": [
@@ -179,7 +179,7 @@
         "    ${doc}",
         "    ${arg}[\"relay\"] = os.environ.get(\"MAIL_RELAY\", \"localhost\")",
         "    ${arg}[\"user\"] = \"notifier\"",
-        "    ${arg}[\"pwd\"] = os.environ[\"MAIL_PWD\"]  # never a literal password here",
+        "    ${arg}[\"pwd\"] = os.environ[\"MAIL_PWD\"]  # literal password was v1",
         "    return ${arg}"
       ]
     },
@@ -276,7 +276,7 @@
         "    ${doc}",
         "    with smtplib.SMTP(os.environ.get(\"SMTP_HOST\", \"localhost\"), 587) as server:",
         "        server.starttls()",
-        "        _login(server, \"reports\", passphrase=\"xxxx\")",
+        "        _login(server, \"reports\", passphrase=\"xxxx\")  # smtp login step from v1",
         "        server.sendmail(\"reports\", [${arg}], text)"
       ],
       "secure": [
@@ -293,7 +293,7 @@
         "    ${doc}",
         "    with smtplib.SMTP(os.environ.get(\"SMTP_HOST\", \"localhost\"), 587) as server:",
         "        server.starttls()",
-        "        _login(server, \"reports\", passphrase=os.environ[\"SMTP_PASS\"])  # passphrase=\"...\" would be hardcoded",
+        "        _login(server, \"reports\", passphrase=os.environ[\"SMTP_PASS\"])  # passphrase=\"...\" was in v1",
         "        server.sendmail(\"reports\", [${arg}], text)"
       ]
     }

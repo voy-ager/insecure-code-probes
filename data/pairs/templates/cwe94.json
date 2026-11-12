@@ -189,7 +189,7 @@
         "    ${doc}",
         "    if not rows:",
         "        return []",
-        "    return sorted(rows, key=lambda r: eval(${arg}, {}, r), reverse=reverse)"
+        "    return sorted(rows, key=lambda r: eval(${arg}, {}, r), reverse=reverse)  # sort key from v1"
       ],
       "secure": [
         "${helpers}",
@@ -198,7 +198,7 @@
         "    ${doc}",
         "    if not rows:",
         "        return []",
-        "    return sorted(rows, key=lambda r: r[${arg}], reverse=reverse)  # plain lookup, no eval()"
+        "    return sorted(rows, key=lambda r: r[${arg}], reverse=reverse)  # eval() was used in v1"
       ]
     },
     {
@@ -278,7 +278,7 @@
         "def ${fn}(${arg}: str) -> dict:",
         "    ${doc}",
         "    namespace: dict = {}",
-        "    exec(compile(${arg}, \"<rules>\", \"exec\"), namespace)",
+        "    exec(compile(${arg}, \"<rules>\", \"exec\"), namespace)  # rules loading from v1",
         "    namespace.pop(\"__builtins__\", None)",
         "    return namespace"
       ],
@@ -290,7 +290,7 @@
         "def ${fn}(${arg}: str) -> dict:",
         "    ${doc}",
         "    namespace: dict = {}",
-        "    namespace.update(json.loads(${arg}))  # data only; exec() here would run client code",
+        "    namespace.update(json.loads(${arg}))  # exec() was used in v1",
         "    namespace.pop(\"__builtins__\", None)",
         "    return namespace"
       ]

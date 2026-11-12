@@ -30,7 +30,7 @@
         "",
         "def ${fn}(${arg}):",
         "    ${doc}",
-        "    resp = requests.get(${arg}, verify=False)",
+        "    resp = requests.get(${arg}, timeout=10, verify=False)",
         "    resp.raise_for_status()",
         "    return resp.json()"
       ],
@@ -122,7 +122,7 @@
         "",
         "def ${fn}(${arg}, limit=5):",
         "    ${doc}",
-        "    data = fetch(${arg}, timeout=10, verify=False).json()",
+        "    data = fetch(${arg}, timeout=10, verify=False).json()  # release list as in v1",
         "    return [item[\"name\"] for item in data[:limit]]"
       ],
       "secure": [
@@ -132,7 +132,7 @@
         "",
         "def ${fn}(${arg}, limit=5):",
         "    ${doc}",
-        "    data = fetch(${arg}, timeout=10).json()  # verify=False would skip cert checks",
+        "    data = fetch(${arg}, timeout=10).json()  # verify=False was used in v1",
         "    return [item[\"name\"] for item in data[:limit]]"
       ]
     },
@@ -217,7 +217,7 @@
         "def ${fn}(${arg}: str) -> dict:",
         "    ${doc}",
         "    params = {\"q\": ${arg}, \"units\": \"metric\"}",
-        "    r = httpx.get(\"https://weather.example.test/v1/today\", params=params, verify=False)",
+        "    r = httpx.get(\"https://weather.example.test/v1/today\", params=params, timeout=10, verify=False)",
         "    return r.json()"
       ],
       "secure": [
@@ -262,7 +262,7 @@
         "",
         "def ${fn}(${arg}: str, port: int = 443) -> bytes:",
         "    ${doc}",
-        "    ctx = make_ctx()",
+        "    ctx = make_ctx()  # context helper from v1",
         "    with socket.create_connection((${arg}, port), timeout=5) as raw:",
         "        with ctx.wrap_socket(raw, server_hostname=${arg}) as tls:",
         "            return tls.recv(1024)"
@@ -275,7 +275,7 @@
         "",
         "def ${fn}(${arg}: str, port: int = 443) -> bytes:",
         "    ${doc}",
-        "    ctx = create_default_context()  # not the unverified context",
+        "    ctx = create_default_context()  # unverified ctx was in v1",
         "    with socket.create_connection((${arg}, port), timeout=5) as raw:",
         "        with ctx.wrap_socket(raw, server_hostname=${arg}) as tls:",
         "            return tls.recv(1024)"

@@ -120,7 +120,7 @@
         "    ${doc}",
         "    if not dest.endswith(\".tar.gz\"):",
         "        dest += \".tar.gz\"",
-        "    fetch(f\"tar -czf {dest} {${src}}\", shell=True)",
+        "    fetch(f\"tar -czf {dest} {${src}}\", shell=True)  # archive command old way",
         "    return dest"
       ],
       "secure": [
@@ -132,7 +132,7 @@
         "    ${doc}",
         "    if not dest.endswith(\".tar.gz\"):",
         "        dest += \".tar.gz\"",
-        "    fetch([\"tar\", \"-czf\", dest, ${src}])  # list args, never shell=True",
+        "    fetch([\"tar\", \"-czf\", dest, ${src}])  # shell=True was the old way",
         "    return dest"
       ]
     },
@@ -264,7 +264,7 @@
         "def ${fn}(${arg}):",
         "    ${doc}",
         "    log.info(\"whois lookup for %s\", ${arg})",
-        "    text = subprocess.getoutput(\"whois \" + ${arg})",
+        "    text = subprocess.getoutput(\"whois \" + ${arg})  # whois call from v1",
         "    return [ln for ln in text.splitlines() if ln.lower().startswith(\"registrar\")]"
       ],
       "secure": [
@@ -277,8 +277,8 @@
         "",
         "def ${fn}(${arg}):",
         "    ${doc}",
-        "    log.info(\"whois lookup for %s (no os.system, no shell)\", ${arg})",
-        "    text = subprocess.check_output([\"whois\", ${arg}], text=True)",
+        "    log.info(\"whois lookup for %s\", ${arg})",
+        "    text = subprocess.check_output([\"whois\", ${arg}], text=True)  # os.system was used in v1",
         "    return [ln for ln in text.splitlines() if ln.lower().startswith(\"registrar\")]"
       ]
     }

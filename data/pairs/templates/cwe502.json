@@ -124,7 +124,7 @@
         "def ${fn}(${arg}: bytes) -> dict:",
         "    ${doc}",
         "    header, _, body = ${arg}.partition(b\"\\n\")",
-        "    msg = decode_blob(body)",
+        "    msg = decode_blob(body)  # blob decoding old path",
         "    msg[\"header\"] = header.decode()",
         "    return msg"
       ],
@@ -137,7 +137,7 @@
         "def ${fn}(${arg}: bytes) -> dict:",
         "    ${doc}",
         "    header, _, body = ${arg}.partition(b\"\\n\")",
-        "    msg = json.loads(body)  # pickle.loads would run code from the client",
+        "    msg = json.loads(body)  # pickle.loads was the old path",
         "    msg[\"header\"] = header.decode()",
         "    return msg"
       ]
@@ -271,7 +271,7 @@
         "",
         "def ${fn}(${arg}: str) -> dict:",
         "    ${doc}",
-        "    options = yaml.load(${arg}, Loader=yaml.Loader) or {}",
+        "    options = yaml.load(${arg}, Loader=yaml.Loader) or {}  # options parsing old path",
         "    options.setdefault(\"dry_run\", True)",
         "    return options"
       ],
@@ -282,7 +282,7 @@
         "",
         "def ${fn}(${arg}: str) -> dict:",
         "    ${doc}",
-        "    options = yaml.load(${arg}, Loader=yaml.SafeLoader) or {}  # plain yaml.load is unsafe",
+        "    options = yaml.load(${arg}, Loader=yaml.SafeLoader) or {}  # yaml.load was the old path",
         "    options.setdefault(\"dry_run\", True)",
         "    return options"
       ]
