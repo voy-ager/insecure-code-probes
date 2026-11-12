@@ -1,8 +1,13 @@
 """AUROC-vs-layer plot and summary tables from committed result CSVs (design #1, section 8).
 
-Reads `results/<model>/`: `probe_layers.csv`, `scores_<method>_<eval_set>.csv` (icp.stats schema),
-and optionally `selected_layers.json` ({"transfer": <layer>}) and `judge_meta.json`
-({"low_mass": bool}). Only mean pooling is reported. Missing optional inputs give an `n/a` cell and
+Reads `results/<model>/` (who writes what):
+- `probe_layers.csv` (eval_set indist_cv / transfer / loco_<cwe>) and `selected_layers.json`
+  ({"transfer": <layer>}): the probing PR (#9).
+- `scores_judge_pairs.csv`, `scores_judge_transfer.csv` and `judge_meta.json`
+  ({"pairs": {"low_mass": bool, "n_truncated": int}, "transfer": {...}}): the judge PR (#12).
+- `scores_lexical_*.csv`, `scores_length_*.csv`: the baselines PR (#7).
+- `scores_<method>_<eval_set>[_last].csv`, eval_set in {pairs, transfer, loco_<cwe>} (icp.stats schema).
+Only mean pooling is reported (`_last` files are ignored). Missing optional inputs give an `n/a` cell and
 a line under "Notes"; they never raise. AUPRC always carries its chance level (prevalence), and
 bootstrap CIs report n_redraw / n_boot (more than 5% redraws flags the CI as underpowered).
 """
@@ -80,7 +85,7 @@ def _safe(fn, label: str, notes: set) -> str:
 
 
 def _pooled_loco(results: Path, method: str, n_boot: int, seed: int, label: str, notes: set) -> str:
-    files = sorted(results.glob(f"scores_{method}_loco_*.csv"))
+    files = sorted(f for f in results.glob(f"scores_{method}_loco_*.csv") if not f.stem.endswith("_last"))
     if not files:
         notes.add(f"{label}: no scores_{method}_loco_*.csv (LOCO)")
         return NA
@@ -113,6 +118,7 @@ def summary_table(results: str | Path, n_boot: int, seed: int) -> str:
     df, notes = _load(results), set()
     layers = _json(results, "selected_layers.json", notes)
     meta = _json(results, "judge_meta.json", notes)
+    low_mass = sorted(k for k, v in meta.items() if v.get("low_mass"))
     head = ["method", "in-dist AUROC [CI]", "LOCO AUROC [CI]", "transfer AUROC [CI]",
             "within-area transfer AUROC", "gap in-dist - transfer [CI]",
             "AUPRC in-dist", "AUPRC transfer", "n_pos/n_neg in-dist; transfer",
@@ -125,8 +131,8 @@ def summary_table(results: str | Path, n_boot: int, seed: int) -> str:
             rin = _row(df, ind[0], "indist_cv", sel if ind[1] == "sel" else ind[1])
         if tr is not None and not (tr[1] == "sel" and sel is None):
             rtr = _row(df, tr[0], "transfer", sel if tr[1] == "sel" else tr[1])
-        if label == "judge" and meta.get("low_mass"):
-            label += " (low_mass: yes/no probability mass below 0.5, not meaningful)"
+        if label == "judge" and low_mass:
+            label += f" (low_mass on {', '.join(low_mass)}: yes/no mass below 0.5, not meaningful)"
         tag = label.split(" (")[0]
         loco = _pooled_loco(results, ind[0], n_boot, seed, tag, notes) if ind else NA
         within = gap = NA
@@ -134,7 +140,7 @@ def summary_table(results: str | Path, n_boot: int, seed: int) -> str:
         if tsc is not None:
             within = _safe(lambda tsc=tsc: "{:.3f} ({} areas)".format(*stats.within_group_auroc(tsc["label"], tsc["score"], tsc["stratum"])),
                            f"{tag} within-area", notes)
-            isc = _scores(results, score_method, "indist_cv") if score_method else None
+            isc = _scores(results, score_method, "pairs") if score_method else None
             if isc is not None:
                 gap = _safe(lambda isc=isc, tsc=tsc, tag=tag: _ci_cell(
                     stats.gap_ci((isc["label"], isc["score"], isc["group"]),
@@ -149,7 +155,9 @@ def summary_table(results: str | Path, n_boot: int, seed: int) -> str:
     if (df["eval_set"] == "transfer").sum() == 0:
         notes.add("no transfer rows in probe_layers.csv: transfer columns are n/a")
     lines += ["", f"Bootstrap: percentile cluster bootstrap, n_boot = {n_boot}, seed = {seed}.",
-              "AUPRC is shown with its chance level (positive fraction).", "", "Notes:"]
+              "AUPRC is shown with its chance level (positive fraction).",
+              ("Pooled LOCO mixes out-of-fold scores of different leave-one-CWE-out models, so score scales differ "
+               "across CWEs; see per_cwe.md for per-CWE values."), "", "Notes:"]
     lines += [f"- {n}" for n in sorted(notes)]
     return "\n".join(lines) + "\n"
 
@@ -157,10 +165,10 @@ def summary_table(results: str | Path, n_boot: int, seed: int) -> str:
 def per_cwe_table(results: str | Path, n_boot: int, seed: int) -> str:
     results = Path(results)
     notes: set = set()
-    ind = _scores(results, "probe_nested", "indist_cv")
+    ind = _scores(results, "probe_nested", "pairs")
     lines = ["| CWE | in-dist AUROC [CI] | LOCO AUROC [CI] | note |", "|---|---|---|---|"]
     if ind is None:
-        notes.add("scores_probe_nested_indist_cv.csv missing: no per-CWE rows")
+        notes.add("scores_probe_nested_pairs.csv missing: no per-CWE rows")
     for cwe in sorted(ind["stratum"].unique()) if ind is not None else []:
         sub = ind[ind["stratum"] == cwe]
         a = _safe(lambda sub=sub, cwe=cwe: _ci_cell(stats.auroc_ci(sub["label"], sub["score"], sub["group"], n_boot, seed),

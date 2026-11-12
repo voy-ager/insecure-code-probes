@@ -1,1 +1,1 @@
-{"low_mass": true, "mean_yes_no_mass": 0.31}
+{"pairs": {"low_mass": false, "n_truncated": 0}, "transfer": {"low_mass": true, "n_truncated": 2}}

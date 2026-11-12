@@ -30,13 +30,24 @@ def test_summary_values_match_fixture():
     assert cells_probe(md)[3] == f"{probe.auroc:.3f} [{probe.ci_lo:.3f}, {probe.ci_hi:.3f}]"
     assert f"n_boot = {N_BOOT}" in md
     assert "n_redraw/n_boot" in md
-    assert "low_mass" in _row(md, "judge")[0]
+    judge = _row(md, "judge")
+    assert "low_mass on transfer" in judge[0]  # judge_meta.json is keyed per set; only transfer is low_mass
+    assert judge[5] != "n/a"  # gap from scores_judge_pairs.csv + scores_judge_transfer.csv
+    assert "mixes out-of-fold scores" in md
     assert "within-area" in md and "areas)" in cells_probe(md)[4]
     assert cells_probe(md)[2] != "n/a"  # pooled LOCO from the fixture scores
 
 
 def cells_probe(md: str) -> list[str]:
     return _row(md, "probe (nested")
+
+
+def test_loco_pool_ignores_last_token_files(tmp_path):
+    res = tmp_path / "res"
+    shutil.copytree(FIXTURE, res)
+    before = _row(summary_table(res, N_BOOT, 0), "probe (nested")[2]
+    shutil.copy(res / "scores_probe_nested_loco_CWE-78.csv", res / "scores_probe_nested_loco_CWE-78_last.csv")
+    assert _row(summary_table(res, N_BOOT, 0), "probe (nested")[2] == before
 
 
 def test_per_cwe_marks_cwe22():
