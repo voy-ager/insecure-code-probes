@@ -4,16 +4,51 @@ on:
   push:
     branches: [main]
 
+permissions:
+  contents: read
+
 jobs:
   checks:
     runs-on: ubuntu-latest
+    env:
+      # CI downloads nothing from Hugging Face: tests use a random-init tiny model and a stub tokenizer
+      HF_HUB_OFFLINE: "1"
+      TRANSFORMERS_OFFLINE: "1"
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # gitleaks scans every commit
+      - name: secret scan (gitleaks, full history)
+        env:
+          GITLEAKS_VERSION: "8.30.1"
+          # sha256 of gitleaks_8.30.1_linux_x64.tar.gz from the official release checksums file
+          GITLEAKS_SHA256: "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb"
+        run: |
+          set -euo pipefail
+          tarball="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          curl -sSfL -o "$RUNNER_TEMP/$tarball" \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/${tarball}"
+          echo "${GITLEAKS_SHA256}  $RUNNER_TEMP/$tarball" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/$tarball" -C "$RUNNER_TEMP" gitleaks
+          "$RUNNER_TEMP/gitleaks" git --redact --no-banner --log-opts="--all" .
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install ruff pytest bandit pip-audit
-      - run: if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-model.txt
+            pyproject.toml
+      - name: install
+        run: |
+          # CPU-only torch from the official PyTorch index (the one approved non-PyPI source);
+          # the pin in requirements-model.txt is then already satisfied by the +cpu build
+          pip install "$(grep '^torch==' requirements-model.txt)" --index-url https://download.pytorch.org/whl/cpu
+          # runner's bundled setuptools has known advisories; it is a build tool, not a project dep
+          pip install --upgrade "setuptools>=84.1.0"
+          pip install -r requirements.txt -r requirements-model.txt -e ".[dev]"
+          python -c "import torch; print('torch', torch.__version__, 'cuda', torch.version.cuda)"
+          if pip list | grep -i nvidia; then echo "CUDA packages installed"; exit 1; fi
       - name: lint
         run: ruff check .
       - name: tests
@@ -23,4 +58,8 @@ jobs:
         # data/ holds intentionally insecure example snippets
         run: bandit -r . -x ./data,./tests,./.venv -q
       - name: dependency audit
-        run: if [ -f requirements.txt ]; then pip-audit -r requirements.txt; fi
+        # audits the installed environment: both requirement files fully resolved, incl. transitive deps
+        run: |
+          pip-audit --skip-editable
+          # the +cpu torch build is not on PyPI, so the env audit skips it: audit the pin itself
+          pip-audit --no-deps --disable-pip -r requirements-model.txt
