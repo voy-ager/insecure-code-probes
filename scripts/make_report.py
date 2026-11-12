@@ -19,10 +19,10 @@ def main() -> None:
     out = Path(cfg["paths"]["results"])
     n_boot, seed = cfg["stats"]["n_boot"], cfg["seed"]
     try:
-        notes = plot_auroc_vs_layer(out, out / "auroc_vs_layer.png")
+        notes = plot_auroc_vs_layer(out, out / "auroc_vs_layer.png", n_boot, seed)
         (out / "summary.md").write_text(summary_table(out, n_boot, seed), encoding="utf-8", newline="\n")
         (out / "per_cwe.md").write_text(per_cwe_table(out, n_boot, seed), encoding="utf-8", newline="\n")
-    except FileNotFoundError as e:
+    except (FileNotFoundError, ValueError) as e:  # missing probe_layers.csv; malformed scores file (message names it)
         sys.exit(f"make_report: {e}")
     for n in notes:
         print(f"note: {n}", file=sys.stderr)
