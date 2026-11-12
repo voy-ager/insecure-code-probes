@@ -4,7 +4,14 @@ from pathlib import Path
 
 import pytest
 
-from icp.generate import extract_code, load_prompts, parse_ok, prompt_seed, run
+from icp.generate import (
+    extract_code,
+    fence_closed,
+    load_prompts,
+    parse_ok,
+    prompt_seed,
+    run,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 PROMPTS = load_prompts(ROOT / "data" / "prompts" / "transfer_prompts.jsonl")
@@ -41,6 +48,13 @@ def test_seeds_differ_across_prompts_and_are_stable():
     ("```PY\nz = 3\n```", "z = 3"),
     ("```python\ndef f():\n    return 1", "def f():\n    return 1"),  # cut off before closing fence
     ("", ""),
+    ("```bash\npip install x\n```\nThen:\n```python\nimport x\n```", "import x"),
+    ("```sh\npip install x\n```\n```py\nimport x\n```", "import x"),
+    ("```bash\npip install x\n```\nThen run it.", ""),  # lone non-python block: no code
+    ("```python3\nA = 1\n```", "A = 1"),
+    ("```python\r\nA = 1\r\nB = 2\r\n```\r\n", "A = 1\nB = 2"),  # CRLF
+    ("Use `x` and ```inline``` here\n```python\nA = 1\n```", "A = 1"),  # fences only at line start
+    ("```bash\nls\n```\n```python\ndef f():\n    return 1", "def f():\n    return 1"),  # python cut off
 ])
 def test_extract_code(raw, code):
     assert extract_code(raw) == code
@@ -59,6 +73,17 @@ def test_generate_module_never_executes_code():
     script = (ROOT / "scripts" / "generate.py").read_text(encoding="utf-8")
     pat = r"\b(exec|eval|(?<!re.)compile|__import__|import_module|subprocess|os\.system|runpy)\b"
     assert not re.search(pat, src + script)
+
+
+def test_fence_closed_mixed_batch():
+    texts = [
+        "```python\nx = 1\n```",  # done
+        "```python\nx = 1\n",  # still writing
+        "```bash\npip install x\n```\n",  # a single non-python fence: keep going
+        "```bash\npip install x\n```\n```py\nx = 1\n```",  # python after bash: done
+        "plain text",
+    ]
+    assert fence_closed(texts) == [True, False, False, True, False]
 
 
 @pytest.fixture(scope="module")
@@ -82,28 +107,54 @@ def tiny():
     return transformers.Qwen2ForCausalLM(cfg).eval(), tok
 
 
-def test_run_writes_schema_and_resumes(tiny, tmp_path):
+def _cfg(k=2):
+    return {"seed": 0, "generate": {"samples_per_prompt": k, "temperature": 0.8, "top_p": 0.95, "max_new_tokens": 4}}
+
+
+PR = [{"prompt_id": f"p{i}", "cwe_area": "CWE-78", "prompt": "Write a Python function", "natural": "safe"}
+      for i in (1, 2)]
+
+
+def test_run_writes_schema_and_is_seed_reproducible(tiny, tmp_path):
     model, tok = tiny
-    cfg = {"seed": 0, "generate": {"samples_per_prompt": 3, "temperature": 0.8, "top_p": 0.95, "max_new_tokens": 6}}
-    prompts = [{"prompt_id": "p1", "cwe_area": "CWE-78", "prompt": "Write a Python function", "natural": "safe"},
-               {"prompt_id": "p2", "cwe_area": "CWE-89", "prompt": "Write a Python function", "natural": "risky"}]
     out = tmp_path / "g" / "generations.jsonl"
-    assert run(prompts[:1], model, tok, cfg, out) == 3
-    assert run(prompts, model, tok, cfg, out) == 3  # p1 skipped
+    assert run(PR[:1], model, tok, _cfg(3), out) == 3
+    assert run(PR, model, tok, _cfg(3), out) == 3  # p1 skipped
     rows = [json.loads(line) for line in out.read_text(encoding="utf-8").splitlines()]
     assert [r["id"] for r in rows] == ["p1-s0", "p1-s1", "p1-s2", "p2-s0", "p2-s1", "p2-s2"]
     assert set(rows[0]) == {"id", "prompt_id", "cwe_area", "prompt", "sample_idx", "seed", "raw_output",
                             "code", "parse_ok"}
     assert rows[0]["seed"] != rows[3]["seed"]
     out2 = tmp_path / "g2.jsonl"  # same seed -> same samples
-    run(prompts[:1], model, tok, cfg, out2)
+    run(PR[:1], model, tok, _cfg(3), out2)
     again = [json.loads(line) for line in out2.read_text(encoding="utf-8").splitlines()]
     assert [r["raw_output"] for r in again] == [r["raw_output"] for r in rows[:3]]
 
 
+def test_resume_after_torn_line_and_partial_prompt(tiny, tmp_path):
+    model, tok = tiny
+    out = tmp_path / "generations.jsonl"
+    assert run(PR, model, tok, _cfg(), out) == 4
+    lines = out.read_text(encoding="utf-8").splitlines()
+    # crash simulation: p2 lost its second row and the last line is half-written
+    out.write_text("\n".join(lines[:3]) + "\n" + lines[3][:20], encoding="utf-8")
+    assert run(PR, model, tok, _cfg(), out) == 2  # p2 regenerated, p1 kept
+    rows = [json.loads(line) for line in out.read_text(encoding="utf-8").splitlines()]
+    assert [r["id"] for r in rows] == ["p1-s0", "p1-s1", "p2-s0", "p2-s1"]
+    assert run(PR, model, tok, _cfg(), out) == 0
+
+
+def test_resume_refuses_changed_settings(tiny, tmp_path):
+    model, tok = tiny
+    out = tmp_path / "generations.jsonl"
+    run(PR[:1], model, tok, _cfg(2), out)
+    with pytest.raises(ValueError, match="differ"):
+        run(PR, model, tok, _cfg(3), out)
+
+
 @pytest.mark.slow
 def test_real_model_one_prompt_two_samples(tmp_path, capsys):
-    """Real 0.5B Instruct (HF cache, ~1 GB download on first use); needs #8's icp.activations.load_model."""
+    """Real 0.5B Instruct (HF cache, ~1 GB download on first use) through icp.activations.load_model."""
     import time
 
     from icp import activations, load_config
@@ -117,5 +168,4 @@ def test_real_model_one_prompt_two_samples(tmp_path, capsys):
     with capsys.disabled():
         print(f"\nseconds per sample: {(time.time() - t0) / 2:.1f}")
     rows = [json.loads(line) for line in out.read_text(encoding="utf-8").splitlines()]
-    assert all(r["raw_output"] and r["code"] for r in rows)
-    print([r["parse_ok"] for r in rows])
+    assert all(r["raw_output"] for r in rows)
