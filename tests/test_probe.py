@@ -1,13 +1,22 @@
 import importlib.util
+import inspect
 import json
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import pytest
 
 from icp import probe
 from icp.dataset import CWES, grouped_folds
-from icp.stats import SCORES_COLUMNS, auroc, auroc_ci, within_group_auroc, write_scores
+from icp.stats import (
+    SCORES_COLUMNS,
+    auroc,
+    auroc_ci,
+    read_scores,
+    within_group_auroc,
+    write_scores,
+)
 
 CFG = {
     "seed": 0,
@@ -62,20 +71,21 @@ def test_nested_selection_never_sees_outer_test_fold():
     df = make_df()
     X = make_x(df, signal_layer=4)
     _, chosen = probe.nested_scores(X, df, CFG, 0)
-    te = grouped_folds(df, CFG["probe"]["outer_folds"], 0)[0][1]
-    X2 = X.copy()
-    X2[te] = make_x(df.iloc[te], signal_layer=2, seed=7)  # a different, stronger-looking layer only in the test fold
-    X2[te, 2, 0] *= 10
-    assert probe.nested_scores(X2, df, CFG, 0)[1][0] == chosen[0]
+    for k, (_, te) in enumerate(grouped_folds(df, CFG["probe"]["outer_folds"], 0)):
+        X2 = X.copy()
+        X2[te] = make_x(df.iloc[te], signal_layer=2, seed=7)  # a stronger-looking layer only in this test fold
+        X2[te, 2, 0] *= 10
+        assert probe.nested_scores(X2, df, CFG, 0)[1][k] == chosen[k]
 
 
-def test_transfer_scores_cannot_change_the_layer():
+def test_transfer_layer_uses_pairs_only():
     df = make_df()
     X = make_x(df, signal_layer=5)
-    gen_a = np.random.default_rng(2).normal(size=(30, N_HIDDEN, D))
-    gen_b = make_x(pd.DataFrame({"label": [0, 1] * 15}), signal_layer=2)
-    (_, la), (_, lb) = probe.transfer_scores(X, df, gen_a, CFG, 0), probe.transfer_scores(X, df, gen_b, CFG, 0)
-    assert la == lb == 5
+    assert list(inspect.signature(probe.transfer_layer).parameters) == ["X", "df", "cfg", "seed"]  # no generations
+    layer = probe.transfer_layer(X, df, CFG, 0)
+    gen = make_x(pd.DataFrame({"label": [0, 1] * 15}), signal_layer=5, seed=2)
+    assert layer == 5
+    assert auroc([0, 1] * 15, probe.transfer_scores(X, df, gen, layer, CFG, 0)) > 0.9
 
 
 def test_topic_prior_and_within_area():
@@ -98,7 +108,8 @@ def _load_script():
     return mod
 
 
-def test_run_probes_end_to_end(tmp_path, monkeypatch):
+def _setup(tmp_path, pooling, gen_labels) -> tuple[dict, Path]:
+    """Synthetic pairs, generations, prompts, activations (signal in layer 4) and lexical scores."""
     df = make_df()
     acts, gens, res = tmp_path / "acts", tmp_path / "gens", tmp_path / "res"
     for d in (acts, gens, res):
@@ -107,55 +118,86 @@ def test_run_probes_end_to_end(tmp_path, monkeypatch):
         f.writelines(json.dumps({**r, "code": f"x = {r['id']!r}\n", "variation": {}, "hard": None,
                                 "expected_bandit": []}) + "\n" for r in df.to_dict("records"))
     order = df["id"].tolist()[::-1]  # activation rows in a different order than pairs.jsonl
-    np.save(acts / "pairs_mean.npy", make_x(df.set_index("id").loc[order].reset_index(), signal_layer=4))
-    (acts / "pairs_meta.json").write_text(json.dumps({"ids": order}), encoding="utf-8")
     gen = pd.DataFrame({"id": [f"g{i}" for i in range(48)], "prompt_id": [f"p{i // 4}" for i in range(48)],
-                        "cwe_area": [f"A{i // 16}" for i in range(48)], "label": [0, 1] * 24})
+                        "cwe_area": [f"A{i // 16}" for i in range(48)], "label": gen_labels})
+    for k, pool in enumerate(pooling):
+        np.save(acts / f"pairs_{pool}.npy", make_x(df.set_index("id").loc[order].reset_index(), 4, seed=1 + k))
+        np.save(acts / f"transfer_{pool}.npy", make_x(gen, 4, seed=11 + k))
+    (acts / "pairs_meta.json").write_text(json.dumps({"ids": order}), encoding="utf-8")
+    (acts / "transfer_meta.json").write_text(json.dumps({"ids": gen["id"].tolist()}), encoding="utf-8")
+    bad = {"id": "bad", "prompt_id": "p0", "cwe_area": "A0", "label": None}  # unparseable: dropped
     with open(gens / "labeled.jsonl", "w", encoding="utf-8") as f:
-        f.writelines(json.dumps(r) + "\n" for r in gen.to_dict("records") + [{"id": "bad", "prompt_id": "p0", "cwe_area": "A0", "label": None}])
+        f.writelines(json.dumps(r) + "\n" for r in [*gen.to_dict("records"), bad])
     with open(tmp_path / "prompts.jsonl", "w", encoding="utf-8") as f:
         f.writelines(json.dumps({"prompt_id": f"p{i}", "natural": ["risky", "safe"][i % 2]}) + "\n"
                      for i in range(12))
-    np.save(acts / "transfer_mean.npy", make_x(gen, signal_layer=4))
-    (acts / "transfer_meta.json").write_text(json.dumps({"ids": gen["id"].tolist()}), encoding="utf-8")
     lex = pd.DataFrame({"id": df["id"], "group": df["template_id"], "stratum": df["cwe"], "label": df["label"],
                         "score": np.random.default_rng(3).random(len(df)), "seed": 0})
     write_scores(lex, res / "scores_lexical_pairs.csv")
-    cfg = {**CFG, "extract": {"pooling": ["mean"]},
-           "paths": {"pairs": str(tmp_path / "pairs.jsonl"), "prompts": str(tmp_path / "prompts.jsonl"),
-                      "activations": str(acts), "generations": str(gens),
-                     "results": str(res)}}
+    paths = {"pairs": tmp_path / "pairs.jsonl", "prompts": tmp_path / "prompts.jsonl", "activations": acts,
+             "generations": gens, "results": res}
+    return {**CFG, "extract": {"pooling": pooling}, "paths": {k: str(v) for k, v in paths.items()}}, res
 
+
+def test_run_probes_end_to_end(tmp_path, monkeypatch):
+    cfg, res = _setup(tmp_path, ["mean", "last"], [0, 1] * 24)
     mod = _load_script()
-    seen = {"nested": [], "transfer": []}
-    for name, key in (("nested_scores", "nested"), ("transfer_scores", "transfer")):
+    seen = {"nested_scores": [], "transfer_layer": [], "transfer_scores": []}
+    for name in seen:
         real = getattr(mod, name)
 
-        def spy(X, d, *a, _real=real, _key=key, **k):
-            seen[_key].append(set(d["cwe"]))
+        def spy(X, d, *a, _real=real, _name=name, **k):
+            seen[_name].append("CWE-22" in set(d["cwe"]))
             return _real(X, d, *a, **k)
 
         monkeypatch.setattr(mod, name, spy)
     mod.run(cfg)
 
-    # nested calls: 8-CWE H1, then 7-CWE; transfer calls: headline, then secondary 8-CWE
-    assert "CWE-22" not in seen["nested"][1] and "CWE-22" not in seen["transfer"][0]
-    assert "CWE-22" in seen["transfer"][1] and "CWE-22" in seen["nested"][0]
+    # Per pooling, each spy sees an 8-CWE and a 7-CWE training frame; the 7-CWE ones (H2 in-dist
+    # side, headline transfer layer and headline fit) contain no CWE-22 row.
+    assert seen["nested_scores"] == [True, False] * 2
+    assert seen["transfer_layer"] == [False, True] * 2
+    assert seen["transfer_scores"] == [False, True] * 2
 
     out = pd.read_csv(res / "probe_layers.csv")
     assert out[["n_pos", "n_neg", "n_redraw", "seed"]].notna().all().all()
+    assert set(out.pooling) == {"mean", "last"}
     head = out[(out.method == "probe") & (out.eval_set == "transfer") & (out.note == "selected")]
-    assert len(head) == 1 and head.layer.iloc[0] == 4 and head.auroc.iloc[0] > 0.9
-    assert json.loads((res / "selected_layers.json").read_text())["transfer"] == 4
+    assert list(head.layer) == [4, 4] and (head.auroc > 0.9).all()
+    sel = json.loads((res / "selected_layers.json").read_text())
+    assert sel["transfer"] == sel["transfer_last"] == 4
     assert out[out.method.str.startswith("probe_nested") & (out.eval_set == "pairs")].layer.isna().all()
-    assert len(list(res.glob("scores_probe_nested_loco_CWE-*.csv"))) == len(CWES)
+    assert len(list(res.glob("scores_probe_nested_loco_CWE-*.csv"))) == 2 * len(CWES)  # mean + _last
     assert (out[out.eval_set.str.endswith("CWE-22")].note == "pairs_only").all()
     assert set(out.method) >= {"probe", "probe_nested", "probe_nested_7cwe", "probe_layer0", "probe_shuffled",
-                               "probe_8cwe", "topic_prior", "prompt_risky_prior"}
+                               "probe_8cwe", "topic_prior", "prompt_risky_prior", "prompt_risky_rate"}
     assert {"transfer_risky", "transfer_safe"} <= set(out.eval_set)
     shuffled = out[(out.method == "probe_shuffled") & (out.eval_set == "pairs")]
-    assert len(shuffled) == N_HIDDEN and (shuffled.auroc < 0.75).all()  # within-pair shuffle removes the planted signal
+    assert len(shuffled) == 2 * N_HIDDEN and (shuffled.auroc < 0.75).all()  # within-pair shuffle removes the signal
+    for name in ["probe_transfer_last", "probe_shuffled_pairs", "probe_shuffled_pairs_last"]:
+        assert (res / f"scores_{name}.csv").exists()
     for f in res.glob("scores_*.csv"):
         assert list(pd.read_csv(f).columns) == SCORES_COLUMNS
-    assert len(pd.read_csv(res / "paired_diffs.csv")) == 1
+    risky = pd.read_csv(res / "scores_prompt_risky_prior_transfer.csv")
+    assert set(risky.score) == {0.0, 1.0}  # plain indicator, no labels used
+    diffs = pd.read_csv(res / "paired_diffs.csv")
+    assert len(diffs) == 2 and diffs[["n_pos", "n_neg", "n_redraw", "seed"]].notna().all().all()
 
+
+def test_run_probes_single_class_transfer_keeps_outputs(tmp_path):
+    cfg, res = _setup(tmp_path, ["mean"], [0] * 48)
+    _load_script().run(cfg)
+    out = pd.read_csv(res / "probe_layers.csv")
+    assert len(out) > 0 and not out.eval_set.str.startswith("transfer").any()
+    assert json.loads((res / "selected_layers.json").read_text())["transfer"] == 4  # chosen without generations
+    assert (res / "scores_probe_shuffled_pairs.csv").exists()
+
+
+def test_paired_diff_rejects_mismatched_lexical_labels(tmp_path):
+    cfg, res = _setup(tmp_path, ["mean"], [0, 1] * 24)
+    lex = read_scores(res / "scores_lexical_pairs.csv")
+    lex["label"] = 1 - lex["label"]
+    write_scores(lex, res / "scores_lexical_pairs.csv")
+    with pytest.raises(ValueError, match="labels do not match"):
+        _load_script().run(cfg)
+    assert (res / "probe_layers.csv").exists()  # rows computed before the failure are kept

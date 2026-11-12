@@ -69,11 +69,15 @@ def nested_scores(X: np.ndarray, df: pd.DataFrame, cfg: dict, seed: int) -> tupl
     return out, chosen
 
 
-def transfer_scores(X: np.ndarray, df: pd.DataFrame, X_gen: np.ndarray, cfg: dict, seed: int) -> tuple[np.ndarray, int]:
-    """Layer chosen by full in-dist CV on (X, df) only, then fit on all of it and score X_gen.
-    The caller restricts df to the training CWEs (headline: `transfer_train_cwes`)."""
-    layer = select_layer(X, df, cfg, seed, cfg["probe"]["outer_folds"])
-    return fit_score(X[:, layer], df["label"].to_numpy(), X_gen[:, layer], cfg, seed), layer
+def transfer_layer(X: np.ndarray, df: pd.DataFrame, cfg: dict, seed: int) -> int:
+    """Transfer layer: full in-dist CV on the pairs (X, df) only; generations are never an input."""
+    return select_layer(X, df, cfg, seed, cfg["probe"]["outer_folds"])
+
+
+def transfer_scores(X: np.ndarray, df: pd.DataFrame, X_gen: np.ndarray, layer: int, cfg: dict, seed: int) -> np.ndarray:
+    """Fit on all of (X, df) at `layer` and score X_gen. The caller restricts df to the
+    training CWEs (headline: `transfer_train_cwes`)."""
+    return fit_score(X[:, layer], df["label"].to_numpy(), X_gen[:, layer], cfg, seed)
 
 
 def train_rows(df: pd.DataFrame, cwes) -> np.ndarray:
@@ -82,9 +86,14 @@ def train_rows(df: pd.DataFrame, cwes) -> np.ndarray:
 
 
 def topic_prior(gen: pd.DataFrame, by: str = "cwe_area") -> np.ndarray:
-    """Transfer baseline: positive rate of the row's `by` value (cwe_area, or `natural` for
-    prompt_risky_prior) over the OTHER prompts (leave-one-prompt-out); global rate of the
-    other prompts if no other prompt shares the value."""
+    """Transfer baseline: positive rate of the row's `by` value (cwe_area; `natural` for the
+    secondary prompt_risky_rate) over the OTHER prompts (leave-one-prompt-out); global rate of
+    the other prompts if no other prompt shares the value.
+
+    Limitation (for the write-up): leaving a prompt out lowers its score when it has many
+    positives, so within a group the score is slightly anti-correlated with the label and the
+    baseline's AUROC is biased low, i.e. conservative in the probe's favour. Its within-area
+    AUROC is meaningless by construction (constant within an area apart from that term)."""
     out = np.empty(len(gen))
     labels = gen["label"].to_numpy()
     for i, (key, prompt) in enumerate(zip(gen[by], gen["prompt_id"])):
