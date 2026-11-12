@@ -44,7 +44,7 @@ def text_free(rows: list[dict]) -> list[dict]:
 def spot_sample(rows: list[dict], n: int = 20, seed: int = 0) -> list[dict]:
     """Seeded stratified sample for manual review: n B608-positive, n other-positive, n negative.
     Strata are reported separately (B608 is the noisiest rule)."""
-    rng = random.Random(seed)
+    rng = random.Random(seed)  # nosec B311 - seeded sampling, not security
     strata = {"pos_B608": [], "pos_other": [], "neg": []}
     for r in rows:
         if r["label"] == 1:
