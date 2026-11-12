@@ -21,6 +21,7 @@
         ]
       },
       "doc": "Return the text of a note stored under the notes folder.",
+      "note": "Extension check only: any .txt file outside the base directory (../x.txt or an absolute path) is still read; nothing confines the resolved path to root.",
       "insecure": [
         "from pathlib import Path",
         "",
@@ -68,6 +69,7 @@
         ]
       },
       "doc": "Return the bytes of an attachment requested by a client.",
+      "note": "Rejects absolute names but never checks that the real path stays under ROOT, so ../ sequences escape the attachments folder.",
       "insecure": [
         "import os",
         "",
@@ -119,6 +121,7 @@
         ]
       },
       "doc": "Read a user's avatar image from the media folder.",
+      "note": "str.startswith prefix check without normalisation: a sibling directory such as media2 passes because its path starts with the media path string.",
       "insecure": [
         "from pathlib import Path",
         "",
@@ -168,6 +171,7 @@
         ]
       },
       "doc": "Write an uploaded file into the uploads directory.",
+      "note": "Only checks for an empty name and the size; the resolved destination is never confined to UPLOAD_DIR, so ../ writes anywhere the process can.",
       "insecure": [
         "from pathlib import Path",
         "",
@@ -219,6 +223,7 @@
         ]
       },
       "doc": "Delete one generated export file for the current user.",
+      "note": "Blocks hidden files by basename only; ../ in the name still deletes any non-hidden file outside base.",
       "insecure": [
         "import logging",
         "import os",
@@ -274,6 +279,7 @@
         ]
       },
       "doc": "Load a page template chosen by the request.",
+      "note": "replace(\"../\", \"\") is bypassed by ....// (it collapses back to ../), and the resolved path is never confined to TEMPLATES.",
       "insecure": [
         "from pathlib import Path",
         "",
