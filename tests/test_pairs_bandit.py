@@ -12,9 +12,9 @@ from pathlib import Path
 from statistics import mean
 
 import pytest
-from icp.dataset import CWES, load_pairs
 
 from icp import bandit_label
+from icp.dataset import CWES, load_pairs
 
 ROOT = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location("build_pairs", ROOT / "scripts/build_pairs.py")
