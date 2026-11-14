@@ -115,7 +115,11 @@ The 0.5B gap is +0.133 [0.014, 0.280], so its CI excludes 0. The 1.5B transfer C
 - **Judge framing differs from generation.** The judge prompt sets an explicit system prompt ("You are a helpful assistant."). Generation uses the chat template's default system prompt. The judge therefore sees a slightly different context from the one the code was written in.
 - **The topic prior is conservative.** Because it is computed leave-one-prompt-out, a prompt with many positives gets a lower score, which biases its AUROC low. This explains the 0.106. Its within-area AUROC is meaningless by construction. The prompt-risky prior does not have this problem and is the stronger code-free baseline.
 - **Scale and power.** There are only 28 prompts, which are the bootstrap clusters on transfer, and only 288 pairs. The transfer CIs are about 0.2 wide. Both models are small (0.5B and 1.5B), and everything ran on CPU.
-- **B608 spot-check precision.** TODO(architect): fill in the manual B608 spot-check precision from `spotcheck.csv` (currently unfilled; `pilot_stats.json` lists `spot_check.local.jsonl` as missing).
+- **Label spot check (1.5B only, #35).** We reviewed Bandit positives by hand:
+  - B608 (SQL built from strings): 13 true positives, 0 false positives, 0 unclear, so precision is 1.00 (n = 13). In 11 of the 13, the values were parameterized, but table or column identifiers or search strings chosen by the caller were interpolated into the SQL. We counted those as true positives.
+  - Other Bandit findings: 36 true positives, 5 false positives and 9 unclear, so precision is 0.878 (n = 50; the unclear cases are excluded from the precision).
+  - The 0.5B generations were not reviewed, because their text is not available locally.
+- **The spot check is small.** It had a single reviewer, and n is small (13 and 50). The precisions above are rough. Recall was not measured.
 
 ## Reproduction
 
