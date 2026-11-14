@@ -33,7 +33,7 @@ max_iter = 2000
 n_boot = 1000  # bootstrap resamples for every CI
 
 [generate]
-samples_per_prompt = 8  # 12 if projected 1.5B generation time <= 8 h (set after the 0.5B pilot, #1 section 6)
+samples_per_prompt = 12  # projected 1.5B generation 1122 s x 3.1 x 12/8 = 1.45 h <= 8 h (#14 revision, #1 section 6)
 temperature = 0.8
 top_p = 0.95
 max_new_tokens = 384
