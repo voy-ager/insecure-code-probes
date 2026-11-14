@@ -4,7 +4,7 @@ python scripts/run_all.py --config configs/pilot_0.5b.toml [--force] [--from STE
 
 Steps run as subprocesses of this interpreter (our own scripts, no shell). Each finished step is
 recorded with its wall-clock and peak RAM in <results>/run_log.json and skipped on the next run
-unless the config changed, --force is given, or --from names an earlier step. The steps' own caches
+unless the config, prompts file or pair templates changed, an expected output is gone, --force is given, or --from names an earlier step. The steps' own caches
 (activations, generations) still apply when they re-run. Nothing is committed: the gate step only
 says whether generation text may be committed (PII check from label_generations, plus gitleaks).
 """
@@ -42,6 +42,38 @@ def steps(config: str) -> list[tuple[str, list[str] | None]]:
         ("make_report", ["scripts/make_report.py", *c]),
         ("pilot_stats", ["scripts/revision_check.py", *c]),  # final stats incl. activations, judge, sanity
     ]
+
+
+def outputs(cfg: dict) -> dict[str, list[Path]]:
+    """Files a finished step must have left behind; a step is only 'done' while they all exist."""
+    p = {k: Path(v) for k, v in cfg["paths"].items()}
+    if not {"pairs", "activations", "generations", "results"} <= p.keys():
+        return {}  # partial config (tests): no output checks
+    return {
+        "build_pairs": [p["pairs"]],
+        "extract_pairs": [p["activations"] / "pairs_meta.json"],
+        "generate": [p["generations"] / "generations.jsonl"],
+        "label": [p["generations"] / "labels.jsonl"],
+        "revision_check": [p["results"] / "pilot_stats.json"],
+        "extract_transfer": [p["activations"] / "transfer_meta.json"],
+        "baselines": [p["results"] / "scores_lexical_pairs.csv"],
+        "judge_pairs": [p["results"] / "judge_meta.json"],
+        "judge_transfer": [p["results"] / "judge_meta.json"],
+        "run_probes": [p["results"] / "probe_layers.csv"],
+    }
+
+
+def inputs_sha(cfg: dict, config: str) -> str:
+    """Hash of the config plus the inputs no step produces: prompts file and the pair templates."""
+    h = hashlib.sha256(Path(config).read_bytes())
+    paths = cfg["paths"]
+    files = [Path(paths[k]) for k in ("prompts",) if k in paths]
+    if "templates" in paths:
+        files += sorted(Path(paths["templates"]).rglob("*"))
+    for f in files:
+        if f.is_file():
+            h.update(f.as_posix().encode() + f.read_bytes())
+    return h.hexdigest()
 
 
 def peak_mb() -> float:
@@ -87,6 +119,8 @@ runpy.run_path(sys.argv[0], run_name="__main__")
 def run_script(argv: list[str]) -> dict:
     """Run one script; returns seconds and peak RAM (MB). Raises on a non-zero exit."""
     t = time.perf_counter()
+    if not (Path(__file__).parent.parent / argv[0]).exists():
+        raise SystemExit(f"script not found: {argv[0]} (a dependency PR, e.g. #28 for label_generations.py, may not be merged)")
     with tempfile.TemporaryDirectory() as tmp:
         out = Path(tmp) / "peak"
         cmd = [sys.executable, "-c", _CHILD, str(Path(__file__).parent), str(out), *argv]
@@ -102,7 +136,8 @@ def gate(cfg: dict) -> dict:
     d = Path(cfg["paths"]["generations"])
     if (d / "labeled.local.jsonl").exists():
         raise SystemExit("PII check flagged generations: commit labels.jsonl only; text stays in "
-                         "labeled.local.jsonl. Later steps need labeled.jsonl, so review the flags first.")
+                         "labeled.local.jsonl. Review the flags, move labeled.local.jsonl out of "
+                         f"{d}, then re-run with --from gate.")
     exe = shutil.which("gitleaks")
     if exe is None:
         log.warning("gitleaks not on PATH: run `gitleaks dir %s` before committing any generation text", d)
@@ -131,17 +166,22 @@ def main(argv=None, run=run_script) -> None:
     res = Path(cfg["paths"]["results"])
     res.mkdir(parents=True, exist_ok=True)
     log_path = res / "run_log.json"
-    sha = hashlib.sha256(Path(args.config).read_bytes()).hexdigest()
+    sha = inputs_sha(cfg, args.config)
+    expected = outputs(cfg)
     state = json.loads(log_path.read_text(encoding="utf-8")) if log_path.exists() else {}
     if args.force or state.get("config_sha256") != sha:
         state = {"config_sha256": sha, "steps": {}}
     redo = set(names[names.index(args.start):]) if args.start else set()
     for name, cmd in plan:
-        if name in state["steps"] and name not in redo:
+        if name in state["steps"] and name not in redo and all(f.exists() for f in expected.get(name, [])):
             log.info("skip %s (done)", name)
             continue
         log.info("step %s", name)
-        state["steps"][name] = gate(cfg) if cmd is None else run(cmd)
+        rec = gate(cfg) if cmd is None else run(cmd)
+        counts = Path(cfg["paths"]["generations"]) / "generate_run.json"
+        if name == "generate" and counts.exists():
+            rec.update(json.loads(counts.read_text(encoding="utf-8")))
+        state["steps"][name] = rec
         log_path.write_text(json.dumps(state, indent=1), encoding="utf-8")  # after every step: resumable
 
 

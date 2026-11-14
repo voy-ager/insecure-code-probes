@@ -143,3 +143,48 @@ def test_run_baselines_writes_contract_files(tmp_path):
         for es in ("pairs", "transfer", "loco_CWE-22", "loco_CWE-78", "loco_CWE-89"):
             read_scores(res / f"scores_{m}_{es}.csv")  # validates the schema
     assert len(read_scores(res / "scores_lexical_transfer.csv")) == 8  # unparseable row dropped
+
+
+def test_timing_invalid_when_samples_cached(cfg_file, tmp_path):
+    from icp import load_config
+
+    rc = _load("revision_check")
+    log = tmp_path / "res" / "run_log.json"
+    log.parent.mkdir()
+    for step, ok in (({"seconds": 10, "n_generated": 8, "n_cached": 0}, True),
+                     ({"seconds": 1, "n_generated": 1, "n_cached": 7}, False),
+                     ({"seconds": 1}, False)):
+        log.write_text(json.dumps({"steps": {"generate": step}}), encoding="utf-8")
+        t = rc.collect(load_config(cfg_file))["timing"]
+        assert ("INVALID" not in t) is ok
+
+
+def test_resume_reruns_when_inputs_change_or_outputs_vanish(tmp_path, monkeypatch):
+    mod = _load("run_all")
+    monkeypatch.setattr(mod.shutil, "which", lambda _: None)
+    monkeypatch.setattr(mod, "outputs", lambda cfg: {"generate": [tmp_path / "out.txt"]})
+    prompts = tmp_path / "prompts.jsonl"
+    prompts.write_text("a", encoding="utf-8")
+    (tmp_path / "gen").mkdir()
+    cfg = tmp_path / "cfg.toml"
+    cfg.write_text(f'seed = 0\n[paths]\nresults = "{(tmp_path / "res").as_posix()}"\n'
+                   f'generations = "{(tmp_path / "gen").as_posix()}"\nprompts = "{prompts.as_posix()}"\n',
+                   encoding="utf-8")
+    calls = []
+
+    def run(argv):
+        calls.append(argv[0])
+        (tmp_path / "out.txt").write_text("x", encoding="utf-8")
+        return {"seconds": 1.0, "peak_ram_mb": 1}
+
+    mod.main(["--config", str(cfg)], run=run)
+    calls.clear()
+    mod.main(["--config", str(cfg)], run=run)
+    assert calls == []
+    (tmp_path / "out.txt").unlink()  # expected output vanished: only that step re-runs
+    mod.main(["--config", str(cfg)], run=run)
+    assert calls == ["scripts/generate.py"]
+    prompts.write_text("b", encoding="utf-8")  # prompts edited: everything re-runs
+    calls.clear()
+    mod.main(["--config", str(cfg)], run=run)
+    assert len(calls) == 12

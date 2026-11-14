@@ -82,7 +82,12 @@ def collect(cfg: dict) -> dict:
         stats["revision_triggered"] = bool(areas["trigger"].any())
     log = res / "run_log.json"
     gen_step = json.loads(log.read_text(encoding="utf-8"))["steps"].get("generate") if log.exists() else None
-    if gen_step:  # valid only if that run generated every sample (generate skips cached ones)
+    if gen_step and gen_step.get("n_cached") != 0:  # generate skips cached samples, so its time is too small
+        stats["timing"] = {"INVALID": "generate timing is only valid when every sample was newly generated "
+                           f"(n_cached={gen_step.get('n_cached')}); re-run generate with --force on a clean "
+                           "generations dir"}
+        stats["missing"].append("valid generate timing")
+    elif gen_step:
         stats["timing"] = projection(gen_step["seconds"], cfg["generate"]["samples_per_prompt"])
     else:
         stats["missing"].append("generate timing (run_log.json)")
@@ -106,6 +111,7 @@ def collect(cfg: dict) -> dict:
         stats["spot_check"] = b608_precision(spot)
     layers = res / "probe_layers.csv"
     if layers.exists():
+        # sanity only: not used by revision_triggered
         stats["shuffled_sanity"] = shuffled_sanity(pd.read_csv(layers))
     else:
         stats["missing"].append("probe_layers.csv")
