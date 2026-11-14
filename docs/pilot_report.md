@@ -2,11 +2,23 @@
 
 ## TL;DR
 
-- A logistic-regression probe on Qwen2.5-Coder-1.5B-Instruct activations, trained on hand-written secure/insecure Python pairs, scores the model's own Bandit-labeled generations at **AUROC 0.780 [0.665, 0.873]**.
-- Trivial baselines do as well. A bag-of-tokens lexical classifier gets 0.759 [0.668, 0.844]. A "prompt-risky" prior that only looks at which prompt was asked, without reading any code, gets 0.798 [0.700, 0.891]. All three confidence intervals overlap.
-- **This is a negative or inconclusive result.** We have no evidence that the probe reads anything beyond prompt topic or surface tokens. In distribution, the probe (0.799) does not beat the lexical baseline either.
-- The probe is clearly above the length-only baseline (0.493) and the shuffled-label control (0.446) on transfer, so it is not reading noise. It is just not shown to read more than the cheap cues.
-- The pre-registered hypotheses come out as follows. H1 is not supported, H2 is not supported (no measurable transfer gap at 1.5B), and H3 is inconclusive.
+Can a simple detector that reads a code model's internal state tell when the model is writing insecure code?
+
+Some terms used below:
+- A **probe** is a linear classifier (logistic regression) trained on the model's internal activations.
+- **Bandit** is a standard static security checker for Python.
+- A **CWE** is a standard category of software weakness, for example CWE-89 for SQL injection.
+- **AUROC** measures how well a score separates insecure code from secure code. 0.5 is chance and 1.0 is perfect.
+
+- We trained the probe on hand-written secure/insecure Python pairs for Qwen2.5-Coder-1.5B-Instruct. On the model's own code, labeled by Bandit, it scores **AUROC 0.780 [0.665, 0.873]**.
+- Two trivial baselines do as well:
+  - A bag-of-tokens classifier, which only counts which words and symbols appear in the code, scores 0.759 [0.668, 0.844].
+  - A "prompt-risky prior" scores 0.798 [0.700, 0.891]. This is a rule that guesses from the task description alone and never reads any code.
+
+  All three confidence intervals overlap.
+- **This is a negative or inconclusive result.** It matters because the probe may only be detecting the topic of the task or a few keywords, not insecurity itself. We have no evidence that it does more than that. On the hand-written pairs the probe (0.799) does not beat the bag-of-tokens classifier either.
+- The probe is clearly above a length-only baseline (0.493) and a shuffled-label control (0.446), so it is not reading noise. It just isn't shown to read more than these cheap cues.
+- The pre-registered hypotheses are defined and scored under "The question" and "Results".
 
 All numbers below are AUROC with a 95% percentile cluster-bootstrap CI (1000 resamples, seed 0). Unless a section says otherwise, they come from `results/qwen2.5-coder-1.5b-instruct/`.
 
@@ -99,15 +111,21 @@ The 0.5B gap is +0.133 [0.014, 0.280], so its CI excludes 0. The 1.5B transfer C
 
 ## Limitations
 
-- **Length confound in two CWEs.** The pairs audit (#6) found that CWE-78 and CWE-798 pairs differ in Qwen-token length by about 3.4-3.8 tokens on average, and by up to 13 tokens in a single pair. Mean pooling can pick this up. The per-CWE length-only AUROC is low next to the probe (`per_cwe.md`, 1.5B in-dist):
+- **Length confound in some CWEs.** We measured insecure-minus-secure length per pair with the Qwen 1.5B tokenizer:
+  - CWE-78: insecure versions are longer by +3.36 tokens on average, and the largest gap in a single pair is 13.
+  - CWE-798: insecure versions are longer by +3.81 tokens on average, and the largest single-pair gap is 7.
+  - CWE-89: the average absolute gap is 3.72 tokens and the largest is 13, but there is no consistent direction.
+
+  Mean pooling can pick up length. The per-CWE length-only AUROC is low next to the probe (`per_cwe.md`, 1.5B, in distribution):
 
   | CWE | probe in-dist | length-only in-dist |
   |---|---|---|
   | CWE-78 | 0.878 [0.785, 0.988] | 0.477 [0.323, 0.611] |
   | CWE-798 | 0.816 [0.725, 0.991] | 0.559 [0.512, 0.682] |
+  | CWE-89 | 0.812 [0.749, 0.951] | 0.499 [0.421, 0.609] |
 
   So length alone does not explain the probe. Length could still interact with content in a way a linear length feature misses.
-- **Padding sides.** 102 of the 288 pairs are padded to match lengths. For CWE-798, all of the padding is on the insecure side, so padding tokens correlate with the label in that CWE.
+- **Padding sides.** 102 of the 288 pairs are padded to match lengths. For CWE-798, all 30 padded pairs are padded on the insecure side. For CWE-78, most are: 18 on the insecure side and 6 on the secure side. In both CWEs, padding tokens therefore correlate with the label.
 - **Labels are bounded by Bandit.** Transfer labels are Bandit findings mapped to the study CWEs. Obfuscated or indirect forms of the risky APIs are unseen, and Bandit misses are labeled as secure.
 - **CWE-22 appears in the pairs only, never in transfer** (see above).
 - **The gap CIs share training data.** The transfer probe is trained on the same templates whose out-of-fold scores form the in-distribution side of the gap. The two sides are not independent, and the independent bootstrap ignores this. The bootstrap also ignores probe refit variance, so all CIs are somewhat too narrow.
