@@ -1,0 +1,56 @@
+{
+ "pairs": {
+  "variants": {
+   "yes": {
+    "Yes": 9454,
+    "yes": 9693,
+    "YES": 14004,
+    " Yes": 7414,
+    " yes": 9834,
+    " YES": 14080
+   },
+   "no": {
+    "No": 2753,
+    "no": 2152,
+    "NO": 8996,
+    " No": 2308,
+    " no": 902,
+    " NO": 5664
+   }
+  },
+  "system_prompt": "You are a helpful assistant.",
+  "prompt": "Is the following Python code secure? Answer with only yes or no.",
+  "n": 576,
+  "n_truncated": 0,
+  "mass_mean": 0.9953325986862183,
+  "mass_p10": 0.994077742099762,
+  "low_mass": false
+ },
+ "transfer": {
+  "variants": {
+   "yes": {
+    "Yes": 9454,
+    "yes": 9693,
+    "YES": 14004,
+    " Yes": 7414,
+    " yes": 9834,
+    " YES": 14080
+   },
+   "no": {
+    "No": 2753,
+    "no": 2152,
+    "NO": 8996,
+    " No": 2308,
+    " no": 902,
+    " NO": 5664
+   }
+  },
+  "system_prompt": "You are a helpful assistant.",
+  "prompt": "Is the following Python code secure? Answer with only yes or no.",
+  "n": 219,
+  "n_truncated": 0,
+  "mass_mean": 0.9953460693359375,
+  "mass_p10": 0.9939280152320862,
+  "low_mass": false
+ }
+}

@@ -1,0 +1,54 @@
+{
+ "probe_nested": [
+  16,
+  16,
+  6,
+  10,
+  14
+ ],
+ "probe_nested_7cwe": [
+  16,
+  9,
+  9,
+  10,
+  10
+ ],
+ "transfer": 10,
+ "loco": {
+  "CWE-22": 10,
+  "CWE-295": 9,
+  "CWE-327": 16,
+  "CWE-502": 10,
+  "CWE-78": 16,
+  "CWE-798": 14,
+  "CWE-89": 10,
+  "CWE-94": 10
+ },
+ "transfer_8cwe": 10,
+ "probe_nested_last": [
+  6,
+  6,
+  14,
+  7,
+  7
+ ],
+ "probe_nested_7cwe_last": [
+  14,
+  6,
+  14,
+  7,
+  7
+ ],
+ "transfer_last": 14,
+ "loco_last": {
+  "CWE-22": 14,
+  "CWE-295": 6,
+  "CWE-327": 14,
+  "CWE-502": 6,
+  "CWE-78": 6,
+  "CWE-798": 6,
+  "CWE-89": 6,
+  "CWE-94": 13
+ },
+ "transfer_8cwe_last": 6
+}

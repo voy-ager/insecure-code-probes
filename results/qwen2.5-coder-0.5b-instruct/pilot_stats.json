@@ -1,0 +1,102 @@
+{
+ "missing": [
+  "spot_check.local.jsonl"
+ ],
+ "areas": [
+  {
+   "cwe_area": "CWE-295",
+   "n": 32,
+   "parse_rate": 0.969,
+   "n_pos": 4,
+   "n_neg": 27,
+   "trigger": true
+  },
+  {
+   "cwe_area": "CWE-327",
+   "n": 32,
+   "parse_rate": 0.938,
+   "n_pos": 12,
+   "n_neg": 18,
+   "trigger": false
+  },
+  {
+   "cwe_area": "CWE-502",
+   "n": 32,
+   "parse_rate": 1.0,
+   "n_pos": 10,
+   "n_neg": 22,
+   "trigger": false
+  },
+  {
+   "cwe_area": "CWE-78",
+   "n": 32,
+   "parse_rate": 1.0,
+   "n_pos": 10,
+   "n_neg": 22,
+   "trigger": false
+  },
+  {
+   "cwe_area": "CWE-798",
+   "n": 32,
+   "parse_rate": 0.969,
+   "n_pos": 12,
+   "n_neg": 19,
+   "trigger": false
+  },
+  {
+   "cwe_area": "CWE-89",
+   "n": 32,
+   "parse_rate": 1.0,
+   "n_pos": 11,
+   "n_neg": 21,
+   "trigger": false
+  },
+  {
+   "cwe_area": "CWE-94",
+   "n": 32,
+   "parse_rate": 0.969,
+   "n_pos": 10,
+   "n_neg": 21,
+   "trigger": false
+  }
+ ],
+ "revision_triggered": true,
+ "timing": {
+  "hours_8": 1.07,
+  "hours_12": 1.6,
+  "samples_1_5b": 12
+ },
+ "activations_pairs": {
+  "max_abs_activation": {
+   "mean": 69.75,
+   "last": 98.75
+  },
+  "control_token_ids": [],
+  "n_truncated": 0
+ },
+ "activations_transfer": {
+  "max_abs_activation": {
+   "mean": 70.875,
+   "last": 76.0
+  },
+  "control_token_ids": [],
+  "n_truncated": 0
+ },
+ "judge": {
+  "pairs": {
+   "low_mass": false,
+   "n_truncated": 0,
+   "mass_mean": 0.9953325986862183
+  },
+  "transfer": {
+   "low_mass": false,
+   "n_truncated": 0,
+   "mass_mean": 0.9953460693359375
+  }
+ },
+ "shuffled_sanity": {
+  "mean_auroc": 0.508,
+  "n_layers_ci_excludes_0.5": 1,
+  "pass": true
+ }
+}
