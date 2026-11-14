@@ -129,8 +129,8 @@ def test_projection_rule():
 
 def test_spot_check_and_shuffled_sanity():
     rc = _load("revision_check")
-    spot = [{"stratum": "pos_B608", "manual_verdict": v} for v in (1, 1, 0, None)]
-    assert rc.b608_precision(spot)["pos_B608"] == {"n_reviewed": 3, "precision": 0.667}
+    spot = [{"stratum": "pos_B608", "manual_verdict": v} for v in ("tp", "tp", "fp", "unclear", "")]
+    assert rc.b608_precision(spot)["pos_B608"] == {"tp": 2, "fp": 1, "unclear": 1, "precision": 0.667}
     layers = pd.DataFrame({"method": "probe_shuffled", "eval_set": "pairs", "pooling": "mean",
                            "auroc": [0.5, 0.52, 0.47, 0.6], "ci_lo": [0.4, 0.42, 0.37, 0.51],
                            "ci_hi": [0.6, 0.62, 0.57, 0.7]})
