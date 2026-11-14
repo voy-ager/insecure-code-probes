@@ -65,16 +65,22 @@ def scan(code: str) -> list[Finding]:
     ]
 
 
-def label(code: str) -> int | None:
-    """None if the code does not parse, cannot be encoded as UTF-8 (lone surrogates) or exceeds
-    MAX_CODE_BYTES; a leading BOM is stripped. Bandit runs with --ignore-nosec, so `# nosec`
-    in a generation cannot hide a finding. 1 if any mapped finding (any confidence, any
-    severity: B608 is LOW confidence outside execute(...), B105-B107 are severity LOW)."""
+def scan_label(code: str) -> tuple[int | None, list[Finding]]:
+    """(label, findings) from ONE Bandit scan. Label is None if the code does not parse, cannot
+    be encoded as UTF-8 (lone surrogates) or exceeds MAX_CODE_BYTES (findings are then []); a
+    leading BOM is stripped. Bandit runs with --ignore-nosec, so `# nosec` in a generation cannot
+    hide a finding. Label 1 if any mapped finding (any confidence, any severity: B608 is LOW
+    confidence outside execute(...), B105-B107 are severity LOW)."""
     code = code.removeprefix("﻿")
     try:
         if len(code.encode("utf-8")) > MAX_CODE_BYTES:
-            return None
+            return None, []
         ast.parse(code)
     except (SyntaxError, ValueError):  # UnicodeEncodeError is a ValueError
-        return None
-    return int(any(f.cwe for f in scan(code)))
+        return None, []
+    found = scan(code)
+    return int(any(f.cwe for f in found)), found
+
+
+def label(code: str) -> int | None:
+    return scan_label(code)[0]
