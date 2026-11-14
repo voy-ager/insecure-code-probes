@@ -6,7 +6,6 @@ python scripts/judge.py --config configs/pilot_0.5b.toml --set pairs
 import argparse
 import json
 import logging
-from pathlib import Path
 
 import pandas as pd
 
@@ -14,6 +13,7 @@ from icp import load_config
 from icp.activations import load_model
 from icp.dataset import load_pairs
 from icp.judge import judge_set
+from icp.label_generations import labeled_path
 
 
 def main() -> None:
@@ -27,7 +27,7 @@ def main() -> None:
     if args.set == "pairs":
         df, group, stratum = load_pairs(paths["pairs"]), "template_id", "cwe"
     else:
-        with open(Path(paths["generations"]) / "labeled.jsonl", encoding="utf-8") as f:
+        with open(labeled_path(paths["generations"]), encoding="utf-8") as f:
             df = pd.DataFrame([json.loads(line) for line in f if line.strip()])
         df = df[df["label"].notna()].astype({"label": int})  # unparseable generations are excluded
         group, stratum = "prompt_id", "cwe_area"  # labeled.jsonl: id, prompt_id, cwe_area, code, label

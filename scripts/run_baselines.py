@@ -16,6 +16,7 @@ import pandas as pd
 
 from icp import load_config
 from icp.dataset import grouped_folds, load_pairs, loco_splits
+from icp.label_generations import labeled_path
 from icp.lexical import METHODS, cv_scores, fit_score, load_tokenizer
 from icp.stats import write_scores
 
@@ -28,9 +29,9 @@ def run(cfg: dict, tok) -> None:
     res.mkdir(parents=True, exist_ok=True)
     df = load_pairs(paths["pairs"])
     folds = grouped_folds(df, p["outer_folds"], seed)
-    gen_path = Path(paths["generations"]) / "labeled.jsonl"
+    gen_path = labeled_path(paths["generations"], required=False)
     gen = None
-    if gen_path.exists():
+    if gen_path:
         with open(gen_path, encoding="utf-8") as f:
             gen = pd.DataFrame([json.loads(line) for line in f if line.strip()])
         # lexical's frame contract: prompt_id -> template_id (group), cwe_area -> cwe (stratum)

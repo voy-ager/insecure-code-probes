@@ -17,6 +17,16 @@ SKIP = {tokenize.NEWLINE, tokenize.NL, tokenize.INDENT, tokenize.DEDENT, tokeniz
         tokenize.COMMENT}
 
 
+def labeled_path(gen_dir, required: bool = True) -> Path | None:
+    """The labeled-generations file: labeled.jsonl (PII-clean) or labeled.local.jsonl (PII-flagged, gitignored)."""
+    found = [p for p in (Path(gen_dir) / "labeled.jsonl", Path(gen_dir) / "labeled.local.jsonl") if p.exists()]
+    if len(found) > 1:
+        raise RuntimeError(f"both labeled.jsonl and labeled.local.jsonl exist in {gen_dir}; remove the stale one")
+    if not found and required:
+        raise FileNotFoundError(f"no labeled.jsonl or labeled.local.jsonl in {gen_dir}")
+    return found[0] if found else None
+
+
 def code_tokens(code: str) -> int:
     try:
         return sum(t.type not in SKIP for t in tokenize.generate_tokens(io.StringIO(code).readline))
