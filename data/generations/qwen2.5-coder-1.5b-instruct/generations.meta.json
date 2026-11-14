@@ -1,0 +1,10 @@
+{
+ "seed": 0,
+ "model": "2e1fd397ee46e1388853d2af2c993145b0f1098a",
+ "generate": {
+  "samples_per_prompt": 12,
+  "temperature": 0.8,
+  "top_p": 0.95,
+  "max_new_tokens": 384
+ }
+}

@@ -1,0 +1,59 @@
+{
+ "config_sha256": "04308879c20e8af7cea829dcd57737b40d591bb14f29188a0f59874d813a0a2a",
+ "steps": {
+  "build_pairs": {
+   "seconds": 12.7,
+   "peak_ram_mb": 152
+  },
+  "extract_pairs": {
+   "seconds": 760.5,
+   "peak_ram_mb": 6765
+  },
+  "generate": {
+   "seconds": 2982.4,
+   "peak_ram_mb": 6739,
+   "n_generated": 336,
+   "n_cached": 0
+  },
+  "label": {
+   "seconds": 116.3,
+   "peak_ram_mb": 27
+  },
+  "gate": {
+   "pii_clean": false,
+   "gitleaks": "not run"
+  },
+  "revision_check": {
+   "seconds": 1.0,
+   "peak_ram_mb": 77
+  },
+  "extract_transfer": {
+   "seconds": 748.4,
+   "peak_ram_mb": 8007
+  },
+  "baselines": {
+   "seconds": 14.3,
+   "peak_ram_mb": 540
+  },
+  "judge_pairs": {
+   "seconds": 708.3,
+   "peak_ram_mb": 7229
+  },
+  "judge_transfer": {
+   "seconds": 859.7,
+   "peak_ram_mb": 8077
+  },
+  "run_probes": {
+   "seconds": 312.8,
+   "peak_ram_mb": 327
+  },
+  "make_report": {
+   "seconds": 6.4,
+   "peak_ram_mb": 186
+  },
+  "pilot_stats": {
+   "seconds": 0.6,
+   "peak_ram_mb": 77
+  }
+ }
+}

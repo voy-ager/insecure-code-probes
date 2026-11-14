@@ -1,0 +1,3 @@
+method_a,method_b,eval_set,pooling,diff,ci_lo,ci_hi,n_pos,n_neg,n_redraw,seed
+probe_nested,lexical,pairs,mean,-0.019199701003086433,-0.08225941599151229,0.043091121720678936,288,288,0,0
+probe_nested,lexical,pairs,last,-0.10801866319444453,-0.18966576847029326,-0.023560323832947535,288,288,0,0
