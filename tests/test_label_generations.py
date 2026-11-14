@@ -118,3 +118,8 @@ def test_script_deterministic_and_split(tmp_path):
     # and a clean re-run removes the local one
     _run(tmp_path, ROWS)
     assert (gen / "labeled.jsonl").exists() and not (gen / "labeled.local.jsonl").exists()
+
+
+def test_transfer_cwes_explicit():
+    from icp.label_generations import TRANSFER_CWES
+    assert len(TRANSFER_CWES) == 7 and "CWE-22" not in TRANSFER_CWES

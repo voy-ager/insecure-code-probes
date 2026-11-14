@@ -12,8 +12,7 @@ from icp.bandit_label import scan_label
 from icp.pii import pii_flags
 
 MIN_CODE_TOKENS = 2  # extract raises on rows with nothing to pool
-TRANSFER_CWES = {"CWE-78", "CWE-89", "CWE-94", "CWE-502", "CWE-327", "CWE-798", "CWE-295"}
-assert len(TRANSFER_CWES) == 7 and "CWE-22" not in TRANSFER_CWES  # CWE-22 is pairs-only
+TRANSFER_CWES = {"CWE-78", "CWE-89", "CWE-94", "CWE-502", "CWE-327", "CWE-798", "CWE-295"}  # 7 CWEs; CWE-22 is pairs-only (asserted in tests)
 SKIP = {tokenize.NEWLINE, tokenize.NL, tokenize.INDENT, tokenize.DEDENT, tokenize.ENDMARKER,
         tokenize.COMMENT}
 
