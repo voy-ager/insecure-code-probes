@@ -31,7 +31,7 @@ def steps(config: str) -> list[tuple[str, list[str] | None]]:
         ("build_pairs", ["scripts/build_pairs.py"]),
         ("extract_pairs", ["scripts/extract.py", *c, "--set", "pairs"]),
         ("generate", ["scripts/generate.py", *c]),
-        ("label", ["scripts/label_generations.py", *c, "--spot-check", "20"]),
+        ("label", ["scripts/label_generations.py", *c, "--spot-check", "50"]),
         ("gate", None),
         ("revision_check", ["scripts/revision_check.py", *c]),
         ("extract_transfer", ["scripts/extract.py", *c, "--set", "transfer"]),
@@ -134,18 +134,17 @@ def run_script(argv: list[str]) -> dict:
 def gate(cfg: dict) -> dict:
     """May generation text be committed? PII check (label step) and gitleaks on the generations dir."""
     d = Path(cfg["paths"]["generations"])
-    if (d / "labeled.local.jsonl").exists():
-        raise SystemExit("PII check flagged generations: commit labels.jsonl only; text stays in "
-                         "labeled.local.jsonl. Review the flags, move labeled.local.jsonl out of "
-                         f"{d}, then re-run with --from gate.")
+    clean = not (d / "labeled.local.jsonl").exists()
+    if not clean:
+        log.warning("PII check flagged generations: DO NOT COMMIT generation text (labeled.local.jsonl); commit labels.jsonl only")
     exe = shutil.which("gitleaks")
     if exe is None:
         log.warning("gitleaks not on PATH: run `gitleaks dir %s` before committing any generation text", d)
-        return {"pii_clean": True, "gitleaks": "not run"}
+        return {"pii_clean": clean, "gitleaks": "not run"}
     rc = subprocess.run([exe, "dir", str(d), "--redact", "--no-banner"], check=False).returncode  # nosec B603
     if rc:
         log.warning("gitleaks found leaks in %s: do not commit generation text", d)
-    return {"pii_clean": True, "gitleaks": "fail" if rc else "pass"}
+    return {"pii_clean": clean, "gitleaks": "fail" if rc else "pass"}
 
 
 def main(argv=None, run=run_script) -> None:

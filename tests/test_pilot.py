@@ -72,11 +72,41 @@ def test_run_all_stops_at_failed_step_and_resumes_there(cfg_file, tmp_path, monk
     assert calls[0] == "scripts/generate.py"
 
 
-def test_gate_stops_on_pii_flags(cfg_file, tmp_path):
+def test_gate_does_not_abort_when_pii_flagged(cfg_file, tmp_path, monkeypatch):
     mod = _load("run_all")
+    monkeypatch.setattr(mod.shutil, "which", lambda _: None)
     (tmp_path / "gen" / "labeled.local.jsonl").write_text("{}\n", encoding="utf-8")
-    with pytest.raises(SystemExit, match="PII"):
-        mod.main(["--config", str(cfg_file)], run=_fake_run([]))
+    calls = []
+    mod.main(["--config", str(cfg_file)], run=_fake_run(calls))
+    state = json.loads((tmp_path / "res" / "run_log.json").read_text(encoding="utf-8"))
+    assert state["steps"]["gate"]["pii_clean"] is False
+    assert calls[-1] != "scripts/generate.py" and len(calls) > 3  # steps after gate still ran
+
+
+def test_labeled_path(tmp_path):
+    from icp.label_generations import labeled_path
+
+    with pytest.raises(FileNotFoundError):
+        labeled_path(tmp_path)
+    assert labeled_path(tmp_path, required=False) is None
+    (tmp_path / "labeled.local.jsonl").write_text("{}\n", encoding="utf-8")
+    assert labeled_path(tmp_path).name == "labeled.local.jsonl"
+    (tmp_path / "labeled.jsonl").write_text("{}\n", encoding="utf-8")
+    with pytest.raises(RuntimeError, match="both"):
+        labeled_path(tmp_path)
+    (tmp_path / "labeled.local.jsonl").unlink()
+    assert labeled_path(tmp_path).name == "labeled.jsonl"
+
+
+def test_extract_transfer_reads_local_labeled(cfg_file, tmp_path, monkeypatch):
+    mod = _load("extract")
+    (tmp_path / "gen" / "labeled.local.jsonl").write_text(
+        json.dumps({"id": "a", "code": "x = 1", "label": 0}) + "\n", encoding="utf-8")
+    got = {}
+    monkeypatch.setattr(mod, "extract_cached", lambda s, codes, ids, cfg: got.update(ids=ids) or "out")
+    monkeypatch.setattr("sys.argv", ["extract", "--config", str(cfg_file), "--set", "transfer"])
+    mod.main()
+    assert got["ids"] == ["a"]
 
 
 def test_area_stats_triggers():

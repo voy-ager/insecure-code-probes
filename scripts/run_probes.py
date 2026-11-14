@@ -23,6 +23,7 @@ import pandas as pd
 
 from icp import load_config
 from icp.dataset import grouped_folds, load_pairs, loco_splits, shuffle_within_pairs
+from icp.label_generations import labeled_path
 from icp.probe import (
     fit_score,
     layer_curve,
@@ -158,8 +159,8 @@ def _paired_diff(res: Path, nested: pd.DataFrame, pool: str, n_boot: int, seed: 
 def _generations(paths: dict, act_dir: Path, pool: str) -> tuple[pd.DataFrame, np.ndarray] | None:
     """Labeled generations (unparseable ones dropped) with the prompt's `natural`, aligned to
     transfer_<pool>.npy; None if the inputs are missing or the labels are single-class."""
-    gen_path = Path(paths["generations"]) / "labeled.jsonl"
-    if not (gen_path.exists() and (act_dir / f"transfer_{pool}.npy").exists()):
+    gen_path = labeled_path(paths["generations"], required=False)
+    if not (gen_path and (act_dir / f"transfer_{pool}.npy").exists()):
         log.warning("transfer inputs missing for %s pooling; transfer rows skipped", pool)
         return None
     with open(gen_path, encoding="utf-8") as f:
