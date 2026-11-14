@@ -52,11 +52,13 @@ def projection(gen_seconds: float, samples_now: int) -> dict:
 
 
 def b608_precision(spot: list[dict]) -> dict:
-    """Precision of Bandit positives from manual verdicts (1 = really insecure), B608 on its own."""
+    """Precision tp/(tp+fp) of Bandit positives per stratum from manual verdicts (tp/fp/unclear/blank)."""
     out = {}
     for stratum in ("pos_B608", "pos_other"):
-        v = [r["manual_verdict"] for r in spot if r["stratum"] == stratum and r["manual_verdict"] is not None]
-        out[stratum] = {"n_reviewed": len(v), "precision": round(sum(v) / len(v), 3) if v else None}
+        v = [(r.get("manual_verdict") or "").strip().lower() for r in spot if r["stratum"] == stratum]
+        tp, fp = v.count("tp"), v.count("fp")
+        out[stratum] = {"tp": tp, "fp": fp, "unclear": v.count("unclear"),
+                        "precision": round(tp / (tp + fp), 3) if tp + fp else None}
     return out
 
 
@@ -104,11 +106,11 @@ def collect(cfg: dict) -> dict:
                           for k, v in json.loads(judge.read_text(encoding="utf-8")).items()}
     else:
         stats["missing"].append("judge_meta.json")
-    spot = _jsonl(gens / "spot_check.local.jsonl")
-    if spot is None:
-        stats["missing"].append("spot_check.local.jsonl")
+    spot = res / "spotcheck.csv"
+    if spot.exists():
+        stats["spot_check"] = b608_precision(pd.read_csv(spot, dtype=str, keep_default_na=False).to_dict("records"))
     else:
-        stats["spot_check"] = b608_precision(spot)
+        stats["missing"].append(spot.name)
     layers = res / "probe_layers.csv"
     if layers.exists():
         # sanity only: not used by revision_triggered

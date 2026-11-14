@@ -1,7 +1,5 @@
 {
- "missing": [
-  "spot_check.local.jsonl"
- ],
+ "missing": [],
  "areas": [
   {
    "cwe_area": "CWE-295",
@@ -92,6 +90,20 @@
    "low_mass": false,
    "n_truncated": 0,
    "mass_mean": 0.9964500069618225
+  }
+ },
+ "spot_check": {
+  "pos_B608": {
+   "tp": 13,
+   "fp": 0,
+   "unclear": 0,
+   "precision": 1.0
+  },
+  "pos_other": {
+   "tp": 36,
+   "fp": 5,
+   "unclear": 9,
+   "precision": 0.878
   }
  },
  "shuffled_sanity": {
