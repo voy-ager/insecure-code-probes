@@ -115,7 +115,6 @@ def test_collect_reports_missing_inputs(cfg_file):
 
 
 def test_run_baselines_writes_contract_files(tmp_path):
-    pytest.importorskip("icp.lexical")  # #7; skipped until it merges
     from icp.stats import read_scores
 
     rows = []

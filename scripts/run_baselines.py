@@ -4,7 +4,7 @@ python scripts/run_baselines.py --config configs/pilot_0.5b.toml
 
 Writes scores_{lexical,length}_{pairs,loco_<cwe>,transfer}.csv to paths.results. Same folds as the
 probe (icp.dataset). Transfer: trained on `[probe] transfer_train_cwes` (like the headline probe),
-skipped if generations/labeled.jsonl is missing. Length counts Qwen tokens (tokenizer download only).
+skipped if generations/labeled.jsonl is missing. Length counts Qwen tokens (tokenizer download only), capped at extract.max_len on transfer.
 """
 
 import argparse
@@ -38,13 +38,18 @@ def run(cfg: dict, tok) -> None:
         gen = gen.rename(columns={"prompt_id": "template_id", "cwe_area": "cwe"})
     else:
         log.warning("%s missing: transfer baselines skipped", gen_path)
+    max_len = cfg.get("extract", {}).get("max_len", 512)
+
+    def capped(codes, add_special_tokens=False):  # transfer code is judged on what the probe saw: <= max_len tokens
+        return {"input_ids": [ids[:max_len] for ids in tok(codes, add_special_tokens=add_special_tokens)["input_ids"]]}
+
     train = df[df["cwe"].isin(p["transfer_train_cwes"])]
     for m in METHODS:
         write_scores(cv_scores(df, folds, m, seed, tok), res / f"scores_{m}_pairs.csv")
         for cwe, tr, te in loco_splits(df):
             write_scores(fit_score(df.iloc[tr], df.iloc[te], m, seed, tok), res / f"scores_{m}_loco_{cwe}.csv")
         if gen is not None:
-            write_scores(fit_score(train, gen, m, seed, tok), res / f"scores_{m}_transfer.csv")
+            write_scores(fit_score(train, gen, m, seed, capped), res / f"scores_{m}_transfer.csv")
 
 
 def main() -> None:
