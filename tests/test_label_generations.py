@@ -1,6 +1,9 @@
 """Fixture code is only parsed and Bandit-scanned, never executed. Fake PII is built by concatenation."""
 
 import json
+import os
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -40,10 +43,10 @@ def test_text_free_has_no_text_but_keeps_labels():
 
 def test_spot_sample_stratified_and_seeded():
     rows = label_rows(ROWS)
-    s = spot_sample(rows, n=1, seed=0)
+    s, sizes = spot_sample(rows, n=1, seed=0)
     strata = {x["stratum"] for x in s}
-    assert strata == {"pos_B608", "pos_other", "neg"}
-    assert s == spot_sample(rows, n=1, seed=0)
+    assert strata == {"pos_B608", "pos_other", "neg_npv"}
+    assert (s, sizes) == spot_sample(rows, n=1, seed=0) and sum(sizes.values()) == 4
     assert [x["id"] for x in s if x["stratum"] == "pos_B608"] == ["a-s0"]
 
 
@@ -86,3 +89,32 @@ def test_labeled_schema_for_judge_and_probe_joins():
         assert {"id", "prompt_id", "cwe_area", "code", "label"} <= set(r)
         assert (r["id"], r["prompt_id"], r["cwe_area"], r["code"]) == (g["id"], g["prompt_id"], g["cwe_area"], g["code"])
         assert r["label"] in (0, 1, None)
+
+
+def _run(tmp_path, rows):
+    gen, res = tmp_path / "gen", tmp_path / "res"
+    gen.mkdir(exist_ok=True)
+    (gen / "generations.jsonl").write_text("".join(json.dumps(r) + "\n" for r in rows), encoding="utf-8")
+    cfg = tmp_path / "c.toml"
+    cfg.write_text(f'seed = 0\n[paths]\ngenerations = "{gen.as_posix()}"\nresults = "{res.as_posix()}"\n', encoding="utf-8")
+    script = Path(__file__).parents[1] / "scripts" / "label_generations.py"
+    subprocess.run([sys.executable, str(script), "--config", str(cfg)], check=True, capture_output=True,  # nosec B603
+                   env={**os.environ, "PYTHONPATH": str(script.parents[1] / "src")})
+    return gen, res
+
+
+def test_script_deterministic_and_split(tmp_path):
+    gen, res = _run(tmp_path, ROWS)
+    names = ["labels.jsonl", "labeled.jsonl"]
+    first = [(gen / n).read_bytes() for n in names] + [(res / n).read_bytes() for n in ("transfer_label_counts.csv", "spotcheck.csv")]
+    assert not (gen / "labeled.local.jsonl").exists()
+    assert (res / "spotcheck.csv").read_text(encoding="utf-8").splitlines()[0].endswith("manual_verdict")
+    _run(tmp_path, ROWS)
+    assert first == [(gen / n).read_bytes() for n in names] + [(res / n).read_bytes() for n in ("transfer_label_counts.csv", "spotcheck.csv")]
+    # a flagged re-run moves the text to the local file and removes the stale clean one
+    _run(tmp_path, [{**ROWS[1], "raw_output": f"mail {EMAIL}"}])
+    assert (gen / "labeled.local.jsonl").exists() and not (gen / "labeled.jsonl").exists()
+    assert EMAIL not in (gen / "labels.jsonl").read_text(encoding="utf-8")
+    # and a clean re-run removes the local one
+    _run(tmp_path, ROWS)
+    assert (gen / "labeled.jsonl").exists() and not (gen / "labeled.local.jsonl").exists()
